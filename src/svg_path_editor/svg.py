@@ -2,7 +2,7 @@ import math
 import re
 from typing import TypedDict, final, override
 
-from path_editor.path_parser import PathParser
+from .path_parser import PathParser
 
 
 def format_number(v: float, d: int, minify: bool = False) -> str:
