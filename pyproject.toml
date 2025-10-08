@@ -1,0 +1,10 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "svg_path_editor"
+authors = [{ name = "Kurt Böhm", email = "kurbo96@gmail.de" }]
+description = "A Python SVG path editor"
+requires-python = ">=3.11"
+dynamic = ["version"]
