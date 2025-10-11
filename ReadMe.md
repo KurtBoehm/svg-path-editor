@@ -3,6 +3,12 @@
 This is a straight-forward port of [`svg-path-editor-lib`](https://www.npmjs.com/package/svg-path-editor-lib) 1.0.3 to Python with minor changes to make the interface more Pythonic.
 Despite these changes, most operations still operate in-place, and changing this behaviour is beyond the scope of this port.
 
+This package is available on PyPI and can be installed using `pip`:
+
+```sh
+pip install svg-path-editor
+```
+
 Basic usage:
 
 ```python
