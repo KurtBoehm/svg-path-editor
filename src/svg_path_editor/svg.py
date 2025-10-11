@@ -11,8 +11,8 @@ from typing import TypedDict, final, override
 from .path_parser import PathParser
 
 
-def format_number(v: float, d: int, minify: bool = False) -> str:
-    s = f"{v:.{d}f}"
+def format_number(v: float, d: int | None, minify: bool = False) -> str:
+    s = f"{v:.{d}f}" if d is not None else str(v)
     s = re.sub(r"^(-?[0-9]*\.([0-9]*[1-9])?)0*$", r"\1", s)
     s = re.sub(r"\.$", "", s)
     if minify:
@@ -213,6 +213,7 @@ class SvgItem:
 
     def get_type(self, ignore_is_relative: bool = False) -> str:
         type_key = getattr(self.__class__, "key")
+        assert isinstance(type_key, str)
         if self.relative and not ignore_is_relative:
             type_key = type_key.lower()
         return type_key
@@ -230,7 +231,7 @@ class SvgItem:
 
     def as_string(
         self,
-        decimals: int = 4,
+        decimals: int | None = None,
         minify: bool = False,
         trailing_items: list["SvgItem"] | None = None,
     ) -> str:
@@ -545,7 +546,7 @@ class EllipticalArcTo(SvgItem):
     @override
     def as_string(
         self,
-        decimals: int = 4,
+        decimals: int | None = None,
         minify: bool = False,
         trailing_items: list[SvgItem] | None = None,
     ) -> str:
@@ -662,7 +663,7 @@ class SvgPath:
             return self.path[idx]
         return None
 
-    def as_string(self, decimals: int = 4, minify: bool = False) -> str:
+    def as_string(self, decimals: int | None = None, minify: bool = False) -> str:
         grouped: list[_Grouped] = []
         for it in self.path:
             t = it.get_type()
@@ -712,3 +713,7 @@ class SvgPath:
             if isinstance(item, (MoveTo, ClosePath)):
                 origin = item.target_location()
             previous = item
+
+    @override
+    def __str__(self) -> str:
+        return self.as_string()

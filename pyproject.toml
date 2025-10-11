@@ -4,7 +4,18 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "svg_path_editor"
+description = "An SVG path editor"
+readme = "ReadMe.md"
+requires-python = ">=3.12"
+license-files = ["License"]
 authors = [{ name = "Kurt Böhm", email = "kurbo96@gmail.de" }]
-description = "A Python SVG path editor"
-requires-python = ">=3.11"
 dynamic = ["version"]
+keywords = ["svg", "drawing", "vector"]
+classifiers = [
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Software Development",
+]

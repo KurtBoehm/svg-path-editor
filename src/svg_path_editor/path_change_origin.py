@@ -5,19 +5,25 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 from .path_operations import optimize_path
+from .sub_path_bounds import get_sub_path_bounds
 from .svg import SvgItem, SvgPath
 
 
-def change_path_origin(svg: SvgPath, new_origin_index: int) -> None:
+def change_path_origin(
+    svg: SvgPath, new_origin_index: int, subpath: bool | None = None
+) -> None:
     if len(svg.path) <= new_origin_index or new_origin_index == 0:
         return
 
-    output_path: list[SvgItem] = []
-    path_len = len(svg.path)
+    start, end = get_sub_path_bounds(svg, new_origin_index if subpath else None)
+    segment_len = end - start
+
+    is_before_relative = end < len(svg.path) and svg.path[end].relative
+    if is_before_relative:
+        svg.path[end].set_relative(False)
+
     new_first_item = svg.path[new_origin_index]
     new_last_item = svg.path[new_origin_index - 1]
-    first_item = svg.path[0]
-    last_item = svg.path[path_len - 1]
 
     match new_first_item.get_type().upper():
         # Shorthands must be converted to be used as origin
@@ -28,7 +34,7 @@ def change_path_origin(svg: SvgPath, new_origin_index: int) -> None:
         case _:
             pass
 
-    for i in range(new_origin_index, path_len):
+    for i in range(new_origin_index, end):
         # Z that comes after new origin must be converted to L, up to the first M
         item = svg.path[i]
         match item.get_type().upper():
@@ -39,33 +45,53 @@ def change_path_origin(svg: SvgPath, new_origin_index: int) -> None:
             case _:
                 pass
 
-    for i in range(path_len):
+    output_path: list[SvgItem] = []
+    sub_path = svg.path[start:end]
+    first_item = sub_path[0]
+    last_item = sub_path[segment_len - 1]
+
+    for i in range(segment_len):
         if i == 0:
             new_origin = new_last_item.target_location()
             item = SvgItem.make(["M", str(new_origin.x), str(new_origin.y)])
             output_path.append(item)
 
-        if new_origin_index + i == path_len:
+        if new_origin_index + i == start + segment_len:
             # We may be able to remove the initial M if last item has the same target
             tg1 = first_item.target_location()
             tg2 = last_item.target_location()
             if tg1.x == tg2.x and tg1.y == tg2.y:
-                following_m = -1
-                for idx, it in enumerate(svg.path):
-                    if idx > 0 and it.get_type().upper() == "M":
-                        following_m = idx
-                        break
-                first_z = -1
-                for idx, it in enumerate(svg.path):
-                    if it.get_type().upper() == "Z":
-                        first_z = idx
-                        break
+                following_m = next(
+                    (
+                        idx
+                        for idx, it in enumerate(sub_path)
+                        if idx > 0 and it.get_type().upper() == "M"
+                    ),
+                    -1,
+                )
+                first_z = next(
+                    (
+                        idx
+                        for idx, it in enumerate(sub_path)
+                        if it.get_type().upper() == "Z"
+                    ),
+                    -1,
+                )
                 if first_z == -1 or (following_m != -1 and first_z > following_m):
-                    # We can remove inital M if there is no Z in the following subpath
+                    # We can remove initial M if there is no Z in the following subpath
                     continue
 
-        output_path.append(svg.path[(new_origin_index + i) % path_len])
+        output_path.append(sub_path[(new_origin_index - start + i) % segment_len])
 
-    svg.path = output_path
+    svg.path = [*svg.path[:start], *output_path, *svg.path[end:]]
     svg.refresh_absolute_positions()
-    optimize_path(svg, remove_useless_components=True, use_shorthands=True)
+
+    if is_before_relative:
+        svg.path[start + len(output_path)].set_relative(True)
+
+    optimize_path(
+        svg,
+        remove_useless_commands=True,
+        use_shorthands=True,
+        use_close_path=True,
+    )
