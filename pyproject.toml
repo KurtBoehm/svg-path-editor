@@ -5,11 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "svg_path_editor"
 description = "An SVG path editor"
+version = "1.3"
 readme = "ReadMe.md"
 requires-python = ">=3.12"
 license-files = ["License"]
 authors = [{ name = "Kurt Böhm", email = "kurbo96@gmail.de" }]
-dynamic = ["version"]
 keywords = ["svg", "drawing", "vector"]
 classifiers = [
   "Intended Audience :: Developers",
