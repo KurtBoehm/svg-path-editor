@@ -22,3 +22,9 @@ classifiers = [
 
 [project.urls]
 Repository = "https://github.com/KurtBoehm/svg_path_editor"
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[tool.pytest]
+testpaths = ["tests"]
