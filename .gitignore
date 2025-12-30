@@ -1,3 +1,4 @@
-/docs/build
-/docs/source/generated
+/dist/
+/docs/build/
+/docs/source/generated/
 __pycache__/

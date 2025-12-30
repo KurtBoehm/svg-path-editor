@@ -132,5 +132,5 @@ pytest
 
 ## 📜 License
 
-This library is licensed under the terms of the Mozilla Public License 2.0, provided in [`License`](License).
-The original TypeScript library is licensed under the Apache License, Version 2.0, provided in [`LicenseYqnn`](LicenseYqnn).
+This library is licensed under the terms of the Mozilla Public License 2.0, provided in [`License`](https://github.com/KurtBoehm/polyqr/blob/main/License).
+The original TypeScript library is licensed under the Apache License, Version 2.0, provided in [`LicenseYqnn`](https://github.com/KurtBoehm/polyqr/blob/main/LicenseYqnn).
