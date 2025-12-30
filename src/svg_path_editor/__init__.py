@@ -12,6 +12,7 @@ from .svg import SvgPath, SvgItem
 __version__ = "2.0.0"
 
 __all__ = [
+    "__version__",
     "SvgPath",
     "SvgItem",
     "optimize_path",
