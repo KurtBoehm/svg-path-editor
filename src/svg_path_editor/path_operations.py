@@ -4,25 +4,43 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+from __future__ import annotations
+
+from typing import Final
+
 from .sub_path_bounds import get_sub_path_bounds
 from .svg import Point, SvgItem, SvgPath
 
 
 def to_str(pt: Point) -> tuple[str, str]:
+    """Return a point’s coordinates as a pair of strings."""
     return str(pt.x), str(pt.y)
 
 
-def reverse_path(svg: SvgPath, subpath_of_item: int | None = None) -> None:
+def reverse_path(svg: SvgPath, subpath_of_item: int | None = None) -> SvgPath:
+    """
+    Return a copy of the path where the drawing direction of the entire path
+    or of a single sub-path is reversed.
+
+    Geometry is preserved, but command types and relative/absolute representation
+    may change as necessary.
+    """
     start, end = get_sub_path_bounds(svg, subpath_of_item)
 
+    # Nothing to reverse if fewer than two items in the subpath.
     if end - start <= 1:
-        return
+        return svg.clone()
 
-    is_before_relative = end < len(svg.path) and svg.path[end].relative
+    new_svg = svg.clone()
+    path = new_svg.path
+
+    # If the item following the subpath is relative, temporarily switch it
+    # to absolute so we can rewrite the sub-path safely.
+    is_before_relative = end < len(path) and path[end].relative
     if is_before_relative:
-        svg.path[end].set_relative(False)
+        path[end].relative = False
 
-    sub_path = svg.path[start:end]
+    sub_path = path[start:end]
     output_path: list[SvgItem] = []
     reversed_path = list(reversed(sub_path))[:-1]
 
@@ -52,9 +70,12 @@ def reverse_path(svg: SvgPath, subpath_of_item: int | None = None) -> None:
             case "V":
                 output_path.append(SvgItem.make(["V", pt[1]]))
             case "C":
+                # Swap control points when reversing cubic Bézier.
                 output_path.append(SvgItem.make(["C", *ctrl[1], *ctrl[0], *pt]))
             case "S":
-                a = to_str(component.control_locations()[0])
+                # For smooth cubic, we may need to expand to C depending
+                # on previous command.
+                a = to_str(component.control_locations[0])
                 if previous_type != "S":
                     output_path.append(SvgItem.make(["C", *ctrl[0], *a, *pt]))
                 else:
@@ -62,16 +83,19 @@ def reverse_path(svg: SvgPath, subpath_of_item: int | None = None) -> None:
             case "Q":
                 output_path.append(SvgItem.make(["Q", *ctrl[0], *pt]))
             case "T":
+                # For smooth quadratic, we may need to expand to Q.
                 if previous_type != "T":
-                    a = to_str(component.control_locations()[0])
+                    a = to_str(component.control_locations[0])
                     output_path.append(SvgItem.make(["Q", *a, *pt]))
                 else:
                     output_path.append(SvgItem.make(["T", *pt]))
             case "A":
+                # Reverse arc: keep radii/angle/large-arc, flip sweep, swap endpoints.
                 vals = [str(v) for v in component.values[:4]]
                 sweep = str(1 - component.values[4])
                 output_path.append(SvgItem.make(["A", *vals, sweep, *pt]))
             case _:
+                # Unsupported/unknown types are ignored silently.
                 pass
 
         previous_type = component_type
@@ -79,30 +103,47 @@ def reverse_path(svg: SvgPath, subpath_of_item: int | None = None) -> None:
     if is_closed:
         output_path.append(SvgItem.make(["Z"]))
 
-    svg.path = [*svg.path[:start], *output_path, *svg.path[end:]]
-    svg.refresh_absolute_positions()
+    new_svg.path = [*path[:start], *output_path, *path[end:]]
+    new_svg.refresh_absolute_positions()
 
+    # Restore the following item’s relativity if needed.
     if is_before_relative:
-        svg.path[start + len(output_path)].set_relative(True)
+        new_svg.path[start + len(output_path)].relative = True
 
-    optimize_path(svg, remove_useless_commands=True, use_shorthands=True)
+    # Optimize the new path to keep representation compact.
+    return optimize_path(
+        new_svg,
+        remove_useless_commands=True,
+        use_shorthands=True,
+    )
 
 
-def optimize_relative_absolute(svg: SvgPath) -> None:
-    length = len(svg.as_string(4, True))
-    o = Point(0, 0)
-    for i in range(len(svg.path)):
-        previous = svg.path[i - 1] if i > 0 else None
-        comp = svg.path[i]
+def optimize_relative_absolute(svg: SvgPath) -> SvgPath:
+    """
+    Return a copy of the path where each command’s relative/absolute form
+    is chosen to minimize the minified path string length.
+
+    The geometry is preserved; only representation changes.
+    """
+    new_svg = svg.clone()
+    length: int = len(new_svg.as_string(4, True))
+    origin: Final[Point] = Point(0, 0)
+
+    for i, comp in enumerate(new_svg.path):
+        previous = new_svg.path[i - 1] if i > 0 else None
         if comp.get_type(True) == "Z":
             continue
-        comp.set_relative(not comp.relative)
-        new_length = len(svg.as_string(4, True))
+
+        # Toggle relativity and test string length.
+        comp.relative = not comp.relative
+        new_length = len(new_svg.as_string(4, True))
         if new_length < length:
             length = new_length
-            comp.refresh(o, previous)
+            comp.refresh(origin, previous)
         else:
-            comp.set_relative(not comp.relative)
+            comp.relative = not comp.relative
+
+    return new_svg
 
 
 def optimize_path(
@@ -115,9 +156,23 @@ def optimize_path(
     use_relative_absolute: bool = False,
     use_reverse: bool = False,
     use_close_path: bool = False,
-) -> None:
-    path = svg.path
-    o = Point(0, 0)
+) -> SvgPath:
+    """
+    Return an optimized copy of the given path by applying several optional passes:
+
+    - `remove_useless_commands`: Remove redundant M/Z or degenerate L/H/V.
+    - `remove_orphan_dots`: Remove empty closed subpaths (M immediately followed by Z).
+    - `use_shorthands`: Convert eligible C/Q to S/T.
+    - `use_horizontal_and_vertical_lines`: Replace L with H/V where possible.
+    - `use_relative_absolute`: Choose relative/absolute per command to minimize size.
+    - `use_reverse`: Try reversing path direction if it reduces output length.
+      This may change the appearance of stroked paths!
+    - `use_close_path`: Convert final line segments that return to start into Z.
+      This may change the appearance of stroked paths!
+    """
+    new_svg = svg.clone()
+    path = new_svg.path
+    origin: Final[Point] = Point(0, 0)
     initial_pt = Point(0, 0)
 
     i = 1
@@ -132,7 +187,7 @@ def optimize_path(
 
         if remove_useless_commands:
             if c0type == "M" and c1type == "M":
-                c1.set_relative(False)
+                c1.relative = False
                 del path[i - 1]
                 i -= 1
                 continue
@@ -175,8 +230,8 @@ def optimize_path(
             if c0type in ("Q", "T") and c1type == "Q":
                 pt = to_str(path[i].target_location())
                 candidate = SvgItem.make(["T", *pt])
-                candidate.refresh(o, c0)
-                ctrl = candidate.control_locations()
+                candidate.refresh(origin, c0)
+                ctrl = candidate.control_locations
                 if (
                     ctrl[0].x == c1.absolute_points[0].x
                     and ctrl[0].y == c1.absolute_points[0].y
@@ -187,8 +242,8 @@ def optimize_path(
                 pt = to_str(path[i].target_location())
                 ctrl = to_str(path[i].absolute_points[1])
                 candidate = SvgItem.make(["S", *ctrl, *pt])
-                candidate.refresh(o, c0)
-                ctrl2 = candidate.control_locations()
+                candidate.refresh(origin, c0)
+                ctrl2 = candidate.control_locations
                 if (
                     ctrl2[0].x == c1.absolute_points[0].x
                     and ctrl2[0].y == c1.absolute_points[0].y
@@ -203,7 +258,7 @@ def optimize_path(
                     pt = to_str(c1.target_location())
                     ctrl = to_str(c1.absolute_points[1])
                     path[i] = SvgItem.make(["S", *ctrl, *pt])
-                    path[i].refresh(o, c0)
+                    path[i].refresh(origin, c0)
 
         if use_close_path:
             if c1type in ("L", "H", "V"):
@@ -219,17 +274,19 @@ def optimize_path(
             del path[-1]
 
         # With remove_useless_commands, links to previous items may become dirty:
-        svg.refresh_absolute_positions()
+        new_svg.refresh_absolute_positions()
 
     if use_relative_absolute:
-        optimize_relative_absolute(svg)
+        new_svg = optimize_relative_absolute(new_svg)
 
     if use_reverse:
-        length = len(svg.as_string(4, True))
-        non_reversed = list(svg.path)
-        reverse_path(svg)
+        length = len(new_svg.as_string(4, True))
+        non_reversed = new_svg.clone()
+        new_svg = reverse_path(new_svg)
         if use_relative_absolute:
-            optimize_relative_absolute(svg)
-        after_length = len(svg.as_string(4, True))
+            new_svg = optimize_relative_absolute(new_svg)
+        after_length = len(new_svg.as_string(4, True))
         if after_length >= length:
-            svg.path = non_reversed
+            new_svg = non_reversed
+
+    return new_svg
