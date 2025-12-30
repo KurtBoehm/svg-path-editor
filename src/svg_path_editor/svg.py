@@ -13,6 +13,25 @@ from typing import Final, TypedDict, final, override
 
 from .path_parser import PathParser
 
+__all__ = [
+    "Point",
+    "SvgPoint",
+    "SvgControlPoint",
+    "SvgItem",
+    "DummySvgItem",
+    "MoveTo",
+    "LineTo",
+    "CurveTo",
+    "SmoothCurveTo",
+    "QuadraticBezierCurveTo",
+    "SmoothQuadraticBezierCurveTo",
+    "ClosePath",
+    "HorizontalLineTo",
+    "VerticalLineTo",
+    "EllipticalArcTo",
+    "SvgPath",
+]
+
 _number_strip_trailing_zeros: Final = re.compile(r"^(-?[0-9]*\.([0-9]*[1-9])?)0*$")
 _number_strip_dot: Final = re.compile(r"\.$")
 _number_leading_zero: Final = re.compile(r"^(-?)0\.")
@@ -22,7 +41,14 @@ _minify_dot_gap: Final = re.compile(r"(\.[0-9]+) (?=\.)")
 
 
 def format_number(v: float, d: int | None, minify: bool = False) -> str:
-    """Format a float with optional fixed decimals and SVG number minification."""
+    """
+    Format a float with optional fixed decimals and SVG number minification.
+
+    :param v: Value to format.
+    :param d: Number of decimal places, or ``None`` for default string conversion.
+    :param minify: Apply SVG-oriented minification (strip trailing zeros,
+        leading zero before decimal, etc.).
+    """
     s = f"{v:.{d}f}" if d is not None else str(v)
     s = _number_strip_trailing_zeros.sub(r"\1", s)
     s = _number_strip_dot.sub("", s)
@@ -40,17 +66,34 @@ class Point:
 
 
 class SvgPoint(Point):
-    """Point used as target or vertex in an SVG path."""
+    """
+    Point used as target or vertex in an SVG path.
+
+    Instances hold a back-reference to the :class:`SvgItem` that owns them.
+    """
 
     def __init__(self, x: float, y: float) -> None:
+        """
+        :param x: x coordinate.
+        :param y: y coordinate.
+        """
         super().__init__(x, y)
         self.item_reference: SvgItem = DummySvgItem()
 
 
 class SvgControlPoint(SvgPoint):
-    """Control point for Bézier segments with optional relation hints."""
+    """
+    Control point for Bézier segments with optional relation hints.
+
+    The :attr:`relations` list can be used to store points that geometrically
+    constrain this control point (e.g. endpoints of the segment).
+    """
 
     def __init__(self, point: Point, relations: list[Point]) -> None:
+        """
+        :param point: Base point for the control point.
+        :param relations: Related points, e.g. endpoints of the curve segment.
+        """
         super().__init__(point.x, point.y)
         self.sub_index: int = 0
         self.relations: list[Point] = relations
@@ -60,6 +103,10 @@ class SvgItem:
     """Base class for a single SVG path command and its numeric values."""
 
     def __init__(self, values: list[float], relative: bool) -> None:
+        """
+        :param values: Command parameters as a flat list of numbers.
+        :param relative: Whether values are stored in relative coordinates.
+        """
         self._relative: bool = relative
         self.values: list[float] = values
         self.previous_point: Point = Point(0, 0)
@@ -68,7 +115,14 @@ class SvgItem:
 
     @staticmethod
     def make(raw_item: list[str]) -> SvgItem:
-        """Construct an SvgItem from a parsed command and its parameter strings."""
+        """
+        Construct an :class:`SvgItem` from a parsed command and its parameter strings.
+
+        :param raw_item: List starting with the command letter followed by numeric
+            parameters as strings (e.g. ``["M", "0", "0"]``).
+        :return: A concrete :class:`SvgItem` subclass instance.
+        :raises ValueError: If the item is empty or the command is invalid.
+        """
         if not raw_item:
             raise ValueError("Empty SVG item")
 
@@ -97,9 +151,15 @@ class SvgItem:
     @staticmethod
     def make_from(origin: SvgItem, previous: SvgItem, new_type: str) -> SvgItem:
         """
-        Create a new SvgItem of type `new_type` based on an existing item,
-        preserving the current target location and, where possible, control
-        point geometry.
+        Create a new :class:`SvgItem` of type ``new_type`` from an existing item.
+
+        The new item preserves the current target location and, where possible,
+        the original control point geometry.
+
+        :param origin: Existing item whose geometry should be preserved.
+        :param previous: Previous item in the path, used for control point defaults.
+        :param new_type: New SVG command letter (e.g. ``"L"`` or ``"c"``).
+        :raises ValueError: If ``new_type`` is not supported.
         """
         target = origin.target_location()
         x, y = str(target.x), str(target.y)
@@ -159,7 +219,12 @@ class SvgItem:
         return result
 
     def refresh_absolute_points(self, origin: Point, previous: SvgItem | None) -> None:
-        """Recalculate absolute points from stored values and previous item."""
+        """
+        Recalculate absolute points from stored values and the previous item.
+
+        :param origin: Current subpath origin (last ``M``/``m`` or ``Z``).
+        :param previous: Previous item in the path, or ``None`` for the first item.
+        """
         self.previous_point = previous.target_location() if previous else Point(0, 0)
         self.absolute_points = []
 
@@ -178,8 +243,12 @@ class SvgItem:
     @relative.setter
     def relative(self, new_relative: bool) -> None:
         """
-        Switch between relative and absolute representation, rewriting values
-        based on the last known previous_point.
+        Switch between relative and absolute representation.
+
+        The underlying numeric values are rewritten based on the last known
+        :attr:`previous_point`.
+
+        :param new_relative: Target representation (``True`` for relative).
         """
         if self._relative == new_relative:
             return
@@ -198,16 +267,33 @@ class SvgItem:
     def refresh_absolute_control_points(
         self, origin: Point, previous_target: SvgItem | None
     ) -> None:
-        """Recalculate absolute control points. Default: no control points."""
+        """
+        Recalculate absolute control points.
+
+        The default implementation assumes there are no control points.
+
+        :param origin: Current subpath origin.
+        :param previous_target: Previous item in the path, if any.
+        """
         self.absolute_control_points = []
 
     def reset_control_points(self, previous_target: SvgItem) -> None:
-        """Reset control points to a default geometry between previous and target."""
-        # Overridden in curve subclasses.
+        """
+        Reset control points to a default geometry between previous and target.
+
+        Subclasses for curve commands override this to compute reasonable defaults.
+
+        :param previous_target: Previous item in the path.
+        """
         pass
 
     def refresh(self, origin: Point, previous: SvgItem | None) -> None:
-        """Recompute all absolute points and bind back-references."""
+        """
+        Recompute all absolute points and re-bind back-references.
+
+        :param origin: Current subpath origin.
+        :param previous: Previous item in the path, or ``None`` for the first item.
+        """
         self.refresh_absolute_points(origin, previous)
         self.refresh_absolute_control_points(origin, previous)
 
@@ -217,16 +303,29 @@ class SvgItem:
             ctrl.item_reference = self
 
     def clone(self) -> SvgItem:
-        """Return a shallow geometric clone of this item (values and relativity)."""
+        """
+        Return a shallow geometric clone of this item.
+
+        Values, relativity and :attr:`previous_point` are copied. Absolute points
+        and control points need to be recomputed via :meth:`refresh`,
+        as is done in :meth:`SvgPath.clone`.
+
+        :return: Cloned :class:`SvgItem` instance of the same subclass.
+        """
         clone: SvgItem = self.__class__(self.values.copy(), self._relative)
         clone.previous_point = Point(self.previous_point.x, self.previous_point.y)
-        # absolute_points / absolute_control_points are recomputed via refresh()
         return clone
 
     def translate(self, x: float, y: float, force: bool = False) -> SvgItem:
         """
-        Return a translated copy. Relative items are translated only if force=True,
-        otherwise their stored deltas are left as-is.
+        Return a translated copy.
+
+        Relative items are translated only if ``force`` is true; otherwise their
+        stored deltas are left unchanged.
+
+        :param x: Translation in x direction.
+        :param y: Translation in y direction.
+        :param force: Also adjust relative coordinates.
         """
         item = self.clone()
 
@@ -237,7 +336,12 @@ class SvgItem:
         return item
 
     def scale(self, kx: float, ky: float) -> SvgItem:
-        """Return a scaled copy, scaling x/y coordinates by kx/ky."""
+        """
+        Return a scaled copy.
+
+        :param kx: Scale factor for x coordinates.
+        :param ky: Scale factor for y coordinates.
+        """
         item = self.clone()
         for idx in range(len(item.values)):
             item.values[idx] *= kx if idx % 2 == 0 else ky
@@ -247,8 +351,15 @@ class SvgItem:
         self, ox: float, oy: float, degrees: float, force: bool = False
     ) -> SvgItem:
         """
-        Return a rotated copy around (ox, oy). For relative items, rotation is
-        performed around (0, 0) unless force=True.
+        Return a rotated copy around ``(ox, oy)``.
+
+        For relative items, rotation is performed around ``(0, 0)`` unless
+        ``force`` is true.
+
+        :param ox: Rotation origin x coordinate.
+        :param oy: Rotation origin y coordinate.
+        :param degrees: Rotation angle in degrees.
+        :param force: Rotate relative coordinates around ``(ox, oy)``.
         """
         item = self.clone()
 
@@ -270,17 +381,28 @@ class SvgItem:
         """Final absolute point reached by this item."""
         return self.absolute_points[-1]
 
-    def set_target_location(self, pts: Point) -> None:
-        """Move the geometric target of this command to `pts`."""
+    def set_target_location(self, pt: Point) -> None:
+        """
+        Move the geometric target of this command to ``pt``.
+
+        :param pt: New target location in absolute coordinates.
+        """
         loc = self.target_location()
-        dx, dy = pts.x - loc.x, pts.y - loc.y
+        dx, dy = pt.x - loc.x, pt.y - loc.y
         self.values[-2] += dx
         self.values[-1] += dy
 
-    def set_control_location(self, idx: int, pts: Point) -> None:
-        """Move control point `idx` to `pts` (for commands storing Bezier handles)."""
+    def set_control_location(self, idx: int, pt: Point) -> None:
+        """
+        Move control point ``idx`` to ``pt``.
+
+        Only meaningful for commands storing Bézier handles.
+
+        :param idx: Index of the control point to move.
+        :param pt: New control point location in absolute coordinates.
+        """
         loc = self.absolute_points[idx]
-        dx, dy = pts.x - loc.x, pts.y - loc.y
+        dx, dy = pt.x - loc.x, pt.y - loc.y
         self.values[2 * idx] += dx
         self.values[2 * idx + 1] += dy
 
@@ -290,7 +412,12 @@ class SvgItem:
         return self.absolute_control_points
 
     def get_type(self, ignore_is_relative: bool = False) -> str:
-        """Return the SVG command letter for this item, respecting relativity."""
+        """
+        Return the SVG command letter for this item (e.g. ``"M"`` or ``"l"``).
+
+        :param ignore_is_relative:
+            Always return the uppercase key regardless of :attr:`relative`.
+        """
         type_key = getattr(self.__class__, "key")
         assert isinstance(type_key, str)
         if self.relative and not ignore_is_relative:
@@ -299,8 +426,10 @@ class SvgItem:
 
     def as_standalone_string(self) -> str:
         """
-        Return a path string that starts with a MoveTo to this command’s
-        previous_point followed by this command.
+        Return a standalone path string for this command.
+
+        The result starts with an ``M`` to this command’s :attr:`previous_point`
+        followed by the command itself.
         """
         return " ".join(
             [
@@ -319,8 +448,15 @@ class SvgItem:
         trailing_items: list[SvgItem] | None = None,
     ) -> str:
         """
-        Serialize this command (optionally together with same-typed trailing items)
-        into an SVG path fragment.
+        Serialize this command into an SVG path fragment.
+
+        Optionally additional same-typed ``trailing_items`` can be appended
+        in a compact form.
+
+        :param decimals: Number of decimal places, or ``None`` for default.
+        :param minify: Use a more compact numeric representation.
+        :param trailing_items: Additional items of the same type to serialize
+            in the same command group.
         """
         trailing_items = trailing_items or []
         flattened = self.values + [v for it in trailing_items for v in it.values]
@@ -333,27 +469,41 @@ class DummySvgItem(SvgItem):
     """Placeholder item used as a default reference owner for points."""
 
     def __init__(self) -> None:
+        """Create a dummy item with no values, always absolute."""
         super().__init__([], False)
 
 
 @final
 class MoveTo(SvgItem):
+    """SVG ``M``/``m`` command (move current point)."""
+
     key = "M"
 
 
 @final
 class LineTo(SvgItem):
+    """SVG ``L``/``l`` command (line to point)."""
+
     key = "L"
 
 
 @final
 class CurveTo(SvgItem):
+    """SVG ``C``/``c`` command (cubic Bézier curve)."""
+
     key = "C"
 
     @override
     def refresh_absolute_control_points(
         self, origin: Point, previous_target: SvgItem | None
     ) -> None:
+        """
+        Recompute absolute control points for a cubic Bézier segment.
+
+        :param origin: Current subpath origin.
+        :param previous_target: Previous item in the path.
+        :raises ValueError: If there is no previous item.
+        """
         if not previous_target:
             raise ValueError("Invalid path: CurveTo without previous item")
         self.absolute_control_points = [
@@ -365,6 +515,11 @@ class CurveTo(SvgItem):
 
     @override
     def reset_control_points(self, previous_target: SvgItem) -> None:
+        """
+        Reset control points to a smooth cubic curve between previous and target.
+
+        :param previous_target: Previous item in the path.
+        """
         a, b = previous_target.target_location(), self.target_location()
         d = a if self.relative else Point(0, 0)
         self.values[0] = 2 * a.x / 3 + b.x / 3 - d.x
@@ -375,26 +530,34 @@ class CurveTo(SvgItem):
 
 @final
 class SmoothCurveTo(SvgItem):
+    """SVG ``S``/``s`` command (smooth cubic Bézier curve)."""
+
     key = "S"
 
     @override
     def refresh_absolute_control_points(
         self, origin: Point, previous_target: SvgItem | None
     ) -> None:
+        """
+        Recompute absolute control points for a smooth cubic Bézier segment.
+
+        :param origin: Current subpath origin.
+        :param previous_target: Previous item in the path, used for reflection.
+        """
         self.absolute_control_points = []
 
         if isinstance(previous_target, (CurveTo, SmoothCurveTo)):
             prev_loc = previous_target.target_location()
             prev_control = previous_target.absolute_control_points[1]
             x, y = 2 * prev_loc.x - prev_control.x, 2 * prev_loc.y - prev_control.y
-            pts = Point(x, y)
-            self.absolute_control_points.append(SvgControlPoint(pts, [prev_loc]))
+            pt = Point(x, y)
+            self.absolute_control_points.append(SvgControlPoint(pt, [prev_loc]))
         else:
             current = (
                 previous_target.target_location() if previous_target else Point(0, 0)
             )
-            pts = Point(current.x, current.y)
-            self.absolute_control_points.append(SvgControlPoint(pts, []))
+            pt = Point(current.x, current.y)
+            self.absolute_control_points.append(SvgControlPoint(pt, []))
 
         self.absolute_control_points.append(
             SvgControlPoint(self.absolute_points[0], [self.target_location()])
@@ -402,6 +565,7 @@ class SmoothCurveTo(SvgItem):
 
     @override
     def as_standalone_string(self) -> str:
+        """A standalone SVG path fragment using ``M`` and an explicit ``C``."""
         ctrl0, ctrl1 = self.absolute_control_points
         target = self.absolute_points[1]
         return " ".join(
@@ -421,6 +585,11 @@ class SmoothCurveTo(SvgItem):
 
     @override
     def reset_control_points(self, previous_target: SvgItem) -> None:
+        """
+        Reset the trailing control point for a smooth cubic curve.
+
+        :param previous_target: Previous item in the path.
+        """
         a = previous_target.target_location()
         b = self.target_location()
         d = a if self.relative else Point(0, 0)
@@ -428,22 +597,37 @@ class SmoothCurveTo(SvgItem):
         self.values[1] = a.y / 3 + 2 * b.y / 3 - d.y
 
     @override
-    def set_control_location(self, idx: int, pts: Point) -> None:
+    def set_control_location(self, idx: int, pt: Point) -> None:
+        """
+        Move the effective control point of this smooth cubic to ``pt``.
+
+        :param idx: Ignored index, the smooth command has a single free control.
+        :param pt: New control point location in absolute coordinates.
+        """
         loc = self.absolute_control_points[1]
-        dx = pts.x - loc.x
-        dy = pts.y - loc.y
+        dx = pt.x - loc.x
+        dy = pt.y - loc.y
         self.values[0] += dx
         self.values[1] += dy
 
 
 @final
 class QuadraticBezierCurveTo(SvgItem):
+    """SVG ``Q``/``q`` command (quadratic Bézier curve)."""
+
     key = "Q"
 
     @override
     def refresh_absolute_control_points(
         self, origin: Point, previous_target: SvgItem | None
     ) -> None:
+        """
+        Recompute absolute control point for a quadratic Bézier segment.
+
+        :param origin: Current subpath origin.
+        :param previous_target: Previous item in the path.
+        :raises ValueError: If there is no previous item.
+        """
         if not previous_target:
             raise ValueError("Invalid path: QuadraticBezierCurveTo without previous")
         ctrl = SvgControlPoint(
@@ -454,6 +638,11 @@ class QuadraticBezierCurveTo(SvgItem):
 
     @override
     def reset_control_points(self, previous_target: SvgItem) -> None:
+        """
+        Reset the control point to the midpoint of previous and target.
+
+        :param previous_target: Previous item in the path.
+        """
         a = previous_target.target_location()
         b = self.target_location()
         d = a if self.relative else Point(0, 0)
@@ -463,31 +652,40 @@ class QuadraticBezierCurveTo(SvgItem):
 
 @final
 class SmoothQuadraticBezierCurveTo(SvgItem):
+    """SVG ``T``/``t`` command (smooth quadratic Bézier curve)."""
+
     key = "T"
 
     @override
     def refresh_absolute_control_points(
         self, origin: Point, previous_target: SvgItem | None
     ) -> None:
+        """
+        Recompute absolute control point for a smooth quadratic Bézier segment.
+
+        :param origin: Current subpath origin.
+        :param previous_target: Previous item in the path, used for reflection.
+        """
         if not isinstance(
             previous_target, (QuadraticBezierCurveTo, SmoothQuadraticBezierCurveTo)
         ):
             previous = (
                 previous_target.target_location() if previous_target else Point(0, 0)
             )
-            pts = Point(previous.x, previous.y)
-            self.absolute_control_points = [SvgControlPoint(pts, [])]
+            pt = Point(previous.x, previous.y)
+            self.absolute_control_points = [SvgControlPoint(pt, [])]
             return
 
         prev_loc = previous_target.target_location()
         prev_control = previous_target.absolute_control_points[0]
         x, y = 2 * prev_loc.x - prev_control.x, 2 * prev_loc.y - prev_control.y
-        pts = Point(x, y)
-        ctrl = SvgControlPoint(pts, [prev_loc, self.target_location()])
+        pt = Point(x, y)
+        ctrl = SvgControlPoint(pt, [prev_loc, self.target_location()])
         self.absolute_control_points = [ctrl]
 
     @override
     def as_standalone_string(self) -> str:
+        """A standalone SVG path fragment using ``M`` and an explicit ``Q``."""
         ctrl = self.absolute_control_points[0]
         target = self.absolute_points[0]
         return " ".join(
@@ -506,22 +704,43 @@ class SmoothQuadraticBezierCurveTo(SvgItem):
 
 @final
 class ClosePath(SvgItem):
+    """SVG ``Z``/``z`` command (close current subpath)."""
+
     key = "Z"
 
     @override
     def refresh_absolute_points(self, origin: Point, previous: SvgItem | None) -> None:
+        """
+        Set the target to the current subpath origin.
+
+        :param origin: Subpath origin point.
+        :param previous: Previous item in the path, if any.
+        """
         self.previous_point = previous.target_location() if previous else Point(0, 0)
         self.absolute_points = [SvgPoint(origin.x, origin.y)]
 
 
 @final
 class HorizontalLineTo(SvgItem):
+    """SVG ``H``/``h`` command (horizontal line)."""
+
     key = "H"
 
     @override
     def rotate(
         self, ox: float, oy: float, degrees: float, force: bool = False
     ) -> SvgItem:
+        """
+        Return a rotated copy.
+
+        Only a rotation by 180 degrees affects pure horizontal segments. Other
+        angles are handled at the path level by type changes.
+
+        :param ox: Rotation origin x coordinate (ignored here).
+        :param oy: Rotation origin y coordinate (ignored here).
+        :param degrees: Rotation angle in degrees.
+        :param force: Unused for this subclass.
+        """
         item = self.clone()
         if degrees == 180:
             item.values[0] = -item.values[0]
@@ -529,25 +748,49 @@ class HorizontalLineTo(SvgItem):
 
     @override
     def refresh_absolute_points(self, origin: Point, previous: SvgItem | None) -> None:
+        """
+        Recompute absolute point for a horizontal line.
+
+        :param origin: Current subpath origin.
+        :param previous: Previous item in the path.
+        """
         self.previous_point = previous.target_location() if previous else Point(0, 0)
         x = self.values[0] + self.previous_point.x if self.relative else self.values[0]
         self.absolute_points = [SvgPoint(x, self.previous_point.y)]
 
     @override
-    def set_target_location(self, pts: Point) -> None:
+    def set_target_location(self, pt: Point) -> None:
+        """
+        Move the target x coordinate to ``pt.x`` (y stays unchanged).
+
+        :param pt: New target location.
+        """
         loc = self.target_location()
-        dx = pts.x - loc.x
+        dx = pt.x - loc.x
         self.values[0] += dx
 
 
 @final
 class VerticalLineTo(SvgItem):
+    """SVG ``V``/``v`` command (vertical line)."""
+
     key = "V"
 
     @override
     def rotate(
         self, ox: float, oy: float, degrees: float, force: bool = False
     ) -> SvgItem:
+        """
+        Return a rotated copy.
+
+        Only a rotation by 180 degrees affects pure vertical segments. Other
+        angles are handled at the path level by type changes.
+
+        :param ox: Rotation origin x coordinate (ignored here).
+        :param oy: Rotation origin y coordinate (ignored here).
+        :param degrees: Rotation angle in degrees.
+        :param force: Unused for this subclass.
+        """
         item = self.clone()
         if degrees == 180:
             item.values[0] = -item.values[0]
@@ -555,6 +798,15 @@ class VerticalLineTo(SvgItem):
 
     @override
     def translate(self, x: float, y: float, force: bool = False) -> SvgItem:
+        """
+        Return a translated copy.
+
+        For absolute vertical lines, only the y coordinate is translated.
+
+        :param x: Translation in x direction (ignored).
+        :param y: Translation in y direction.
+        :param force: Unused for this subclass.
+        """
         item = self.clone()
         if not item.relative:
             item.values[0] += y
@@ -562,29 +814,59 @@ class VerticalLineTo(SvgItem):
 
     @override
     def scale(self, kx: float, ky: float) -> SvgItem:
+        """
+        Return a scaled copy.
+
+        For vertical lines only y scaling applies.
+
+        :param kx: Scale factor for x coordinates (ignored).
+        :param ky: Scale factor for y coordinates.
+        """
         item = self.clone()
         item.values[0] *= ky
         return item
 
     @override
     def refresh_absolute_points(self, origin: Point, previous: SvgItem | None) -> None:
+        """
+        Recompute absolute point for a vertical line.
+
+        :param origin: Current subpath origin.
+        :param previous: Previous item in the path.
+        """
         self.previous_point = previous.target_location() if previous else Point(0, 0)
         y = self.values[0] + self.previous_point.y if self.relative else self.values[0]
         self.absolute_points = [SvgPoint(self.previous_point.x, y)]
 
     @override
-    def set_target_location(self, pts: Point) -> None:
+    def set_target_location(self, pt: Point) -> None:
+        """
+        Move the target y coordinate to ``pt.y`` (x stays unchanged).
+
+        :param pt: New target location.
+        """
         loc = self.target_location()
-        dy = pts.y - loc.y
+        dy = pt.y - loc.y
         self.values[0] += dy
 
 
 @final
 class EllipticalArcTo(SvgItem):
+    """SVG ``A``/``a`` command (elliptical arc)."""
+
     key = "A"
 
     @override
     def translate(self, x: float, y: float, force: bool = False) -> SvgItem:
+        """
+        Return a translated copy.
+
+        For absolute arcs, only the arc target coordinates are translated.
+
+        :param x: Translation in x direction.
+        :param y: Translation in y direction.
+        :param force: Unused for this subclass.
+        """
         item = self.clone()
         if not item.relative:
             item.values[5] += x
@@ -595,6 +877,16 @@ class EllipticalArcTo(SvgItem):
     def rotate(
         self, ox: float, oy: float, degrees: float, force: bool = False
     ) -> SvgItem:
+        """
+        Return a rotated copy.
+
+        The arc’s rotation angle and target coordinates are updated accordingly.
+
+        :param ox: Rotation origin x coordinate.
+        :param oy: Rotation origin y coordinate.
+        :param degrees: Rotation angle in degrees.
+        :param force: Rotate relative coordinates around ``(ox, oy)``.
+        """
         item = self.clone()
 
         item.values[2] = (item.values[2] + degrees) % 360
@@ -611,6 +903,15 @@ class EllipticalArcTo(SvgItem):
 
     @override
     def scale(self, kx: float, ky: float) -> SvgItem:
+        """
+        Return a scaled copy.
+
+        Radii, rotation angle, target and sweep flag are updated to reflect the
+        scaling factors.
+
+        :param kx: Scale factor for x coordinates.
+        :param ky: Scale factor for y coordinates.
+        """
         item = self.clone()
         a, b = item.values[0], item.values[1]
         angle = math.radians(item.values[2])
@@ -643,6 +944,12 @@ class EllipticalArcTo(SvgItem):
 
     @override
     def refresh_absolute_points(self, origin: Point, previous: SvgItem | None) -> None:
+        """
+        Recompute the absolute target point for the arc.
+
+        :param origin: Current subpath origin.
+        :param previous: Previous item in the path.
+        """
         self.previous_point = previous.target_location() if previous else Point(0, 0)
         if self.relative:
             x = self.values[5] + self.previous_point.x
@@ -658,6 +965,13 @@ class EllipticalArcTo(SvgItem):
         minify: bool = False,
         trailing_items: list[SvgItem] | None = None,
     ) -> str:
+        """
+        Serialize this arc (and optionally trailing arcs) to an SVG path fragment.
+
+        :param decimals: Number of decimal places, or ``None`` for default.
+        :param minify: Use a compact group representation.
+        :param trailing_items: Additional arc items to serialize together.
+        """
         trailing_items = trailing_items or []
         if not minify:
             return super().as_string(decimals, minify, trailing_items)
@@ -679,22 +993,34 @@ class _Grouped(TypedDict):
 
 
 class SvgPath:
-    """Immutable-style representation of an SVG path as a sequence of SvgItem."""
+    """An SVG path as a sequence of :class:`SvgItem`."""
 
     def __init__(self, path: str) -> None:
+        """
+        :param path: SVG path data string (e.g. ``"M0 0L10 0Z"``).
+        """
         raw_path = PathParser.parse(path)
         self.path: list[SvgItem] = [SvgItem.make(it) for it in raw_path]
         self.refresh_absolute_positions()
 
     def clone(self) -> SvgPath:
-        """Return a deep clone of this path (items are cloned as well)."""
+        """
+        Return a deep clone of this path.
+
+        All contained items are cloned as well, and absolute positions are recomputed.
+        """
         clone = object.__new__(SvgPath)
         clone.path = [it.clone() for it in self.path]
         clone.refresh_absolute_positions()
         return clone
 
     def translate(self, dx: float, dy: float) -> SvgPath:
-        """Return a translated copy of this path."""
+        """
+        Return a translated copy of this path.
+
+        :param dx: Translation in x direction.
+        :param dy: Translation in y direction.
+        """
         new_path = self.clone()
         new_path.path = [
             it.translate(dx, dy, idx == 0) for idx, it in enumerate(self.path)
@@ -703,7 +1029,12 @@ class SvgPath:
         return new_path
 
     def scale(self, kx: float, ky: float) -> SvgPath:
-        """Return a scaled copy of this path."""
+        """
+        Return a scaled copy of this path.
+
+        :param kx: Scale factor for x coordinates.
+        :param ky: Scale factor for y coordinates.
+        """
         new_path = self.clone()
         new_path.path = [it.scale(kx, ky) for it in self.path]
         new_path.refresh_absolute_positions()
@@ -711,8 +1042,13 @@ class SvgPath:
 
     def rotate(self, ox: float, oy: float, degrees: float) -> SvgPath:
         """
-        Return a rotated copy of this path around (ox, oy).
+        Return a rotated copy of this path around ``(ox, oy)``.
+
         May also normalize horizontal/vertical segments after rotation.
+
+        :param ox: Rotation origin x coordinate.
+        :param oy: Rotation origin y coordinate.
+        :param degrees: Rotation angle in degrees.
         """
         degrees %= 360
         if degrees == 0:
@@ -761,15 +1097,18 @@ class SvgPath:
     @property
     def relative(self) -> bool:
         """
-        True if all items are stored as relative commands. Mixed paths return False.
+        Indicate whether all items are stored as relative commands.
+
+        Mixed paths (some absolute, some relative) return ``False``.
         """
         return all(it.relative for it in self.path)
 
     @relative.setter
     def relative(self, new_relative: bool) -> None:
         """
-        In-place conversion of all items to relative or absolute coordinates.
-        Note: this mutates the current SvgPath instance for efficiency.
+        Convert all items to relative or absolute coordinates in place.
+
+        :param new_relative: Target representation (``True`` for relative).
         """
         for it in self.path:
             it.relative = new_relative
@@ -777,15 +1116,20 @@ class SvgPath:
 
     def with_relative(self, new_relative: bool) -> SvgPath:
         """
-        Return a new path with all items converted to the requested
-        relative/absolute representation.
+        Return a new path with all items converted to the requested representation.
+
+        :param new_relative: Target representation (``True`` for relative).
         """
         new_path = self.clone()
         new_path.relative = new_relative
         return new_path
 
     def delete(self, item: SvgItem) -> SvgPath:
-        """Return a new path with the given item removed, if present."""
+        """
+        Return a new path with the given item removed, if present.
+
+        :param item: Item to remove.
+        """
         if item not in self.path:
             return self.clone()
         new_path = self.clone()
@@ -795,8 +1139,13 @@ class SvgPath:
 
     def insert(self, item: SvgItem, after: SvgItem | None = None) -> SvgPath:
         """
-        Return a new path with `item` inserted after `after`, or appended at
-        the end if `after` is None or not found.
+        Return a new path with ``item`` inserted.
+
+        The new item is inserted after ``after``, or appended if ``after`` is
+        ``None`` or not found.
+
+        :param item: Item to insert.
+        :param after: Item after which to insert, or ``None`` to append.
         """
         new_path = self.clone()
         if after is not None and after in self.path:
@@ -809,9 +1158,12 @@ class SvgPath:
 
     def change_type(self, item: SvgItem, new_type: str) -> SvgItem | None:
         """
-        Change the command type of `item` in-place within this path, returning
-        the newly created SvgItem, or None if `item` is not in the path or
-        is the first item.
+        Change the command type of ``item`` in place within this path.
+
+        :param item: Item whose type should be changed.
+        :param new_type: New SVG command letter (e.g. ``"L"`` or ``"c"``).
+        :return: Newly created :class:`SvgItem` replacing ``item``, or ``None`` if
+            ``item`` is not in the path or is the first item.
         """
         if item not in self.path:
             return None
@@ -826,7 +1178,12 @@ class SvgPath:
         return new_item
 
     def as_string(self, decimals: int | None = None, minify: bool = False) -> str:
-        """Serialize the entire path to an SVG path string."""
+        """
+        Serialize the entire path to an SVG path data string.
+
+        :param decimals: Number of decimal places, or ``None`` for default.
+        :param minify: Use a compact representation.
+        """
         grouped: list[_Grouped] = []
         for it in self.path:
             t = it.get_type()
@@ -849,7 +1206,7 @@ class SvgPath:
 
     @property
     def target_locations(self) -> list[SvgPoint]:
-        """List of final absolute points for each item in the path."""
+        """Final absolute points for each item in the path."""
         return [it.target_location() for it in self.path]
 
     @property
@@ -865,8 +1222,13 @@ class SvgPath:
 
     def set_location(self, pt_reference: SvgPoint, to: Point) -> SvgPath:
         """
-        Return a new path with the given point (target or control) moved to
-        `to`. The reference must come from a previously queried point list.
+        Return a new path with the given point moved to ``to``.
+
+        The reference must come from a previously queried point list
+        (e.g. :attr:`target_locations` or :attr:`control_locations`).
+
+        :param pt_reference: Point (target or control) to be moved.
+        :param to: New absolute location for the point.
         """
         new_path = self.clone()
         # Rebind to cloned items
@@ -887,7 +1249,11 @@ class SvgPath:
         return new_path
 
     def refresh_absolute_positions(self) -> None:
-        """Recompute absolute positions for all items in the path."""
+        """
+        Recompute absolute positions for all items in the path.
+
+        This should be called after structural or coordinate changes.
+        """
         previous: SvgItem | None = None
         origin = Point(0, 0)
         for item in self.path:
@@ -898,4 +1264,5 @@ class SvgPath:
 
     @override
     def __str__(self) -> str:
+        """Return :meth:`as_string` with default options."""
         return self.as_string()

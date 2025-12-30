@@ -24,7 +24,7 @@ classifiers = [
 Repository = "https://github.com/KurtBoehm/svg_path_editor"
 
 [project.optional-dependencies]
-dev = ["pytest"]
+dev = ["furo", "pytest", "sphinx", "sphinx-autoapi"]
 
 [tool.pytest]
 testpaths = ["tests"]

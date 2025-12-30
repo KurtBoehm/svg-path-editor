@@ -17,10 +17,20 @@ def change_path_origin(
     """
     Return a new path where the origin of a (sub)path is moved.
 
-    The command at `new_origin_index` becomes the first command of the affected
-    subpath segment; all items of that subpath are rotated accordingly.
-    If `subpath` is True, only the subpath containing `new_origin_index` is
-    transformed; if False/None, the whole path is treated as a single segment.
+    The command at ``new_origin_index`` becomes the first command of the
+    affected subpath segment; all items of that subpath are rotated
+    accordingly.
+    If ``subpath`` is ``True``, only the subpath containing ``new_origin_index`` is
+    transformed; if ``False``/``None``, the whole path is treated as a single segment.
+
+    :param svg: Original path to transform.
+    :param new_origin_index:
+        Index of the command that should become the new origin within its subpath.
+    :param subpath:
+        If ``True``, restrict the change to the subpath containing ``new_origin_index``;
+        if ``False`` or ``None``, treat the full path segment as one subpath.
+    :returns: A new :class:`~svg_path_editor.SvgPath` instance with the
+        origin moved and the path representation optimized.
     """
     if len(svg.path) <= new_origin_index or new_origin_index == 0:
         # Nothing to change or invalid index; just return a clone.
