@@ -29,7 +29,7 @@ exclude_patterns = []
 autodoc_member_order = "bysource"
 autodoc_typehints = "description"
 
-autoapi_dirs = ['../../src']
+autoapi_dirs = ["../../src"]
 autoapi_add_toctree_entry = False
 
 python_use_unqualified_type_names = True

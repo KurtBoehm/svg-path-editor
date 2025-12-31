@@ -5,9 +5,8 @@
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 from .path_change_origin import change_path_origin
-from .path_operations import optimize_path
-from .path_operations import reverse_path
-from .svg import SvgPath, SvgItem
+from .path_operations import optimize_path, reverse_path
+from .svg import SvgItem, SvgPath
 
 __version__ = "2.0.0"
 

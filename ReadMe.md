@@ -6,7 +6,8 @@ It is a port of [`svg-path-editor-lib`](https://www.npmjs.com/package/svg-path-e
 
 - **Out-of-place by default**: most operations return new objects instead of mutating in place, similar to `datetime` or `pathlib`.
 - **Typed and documented**: extensive type hints and docstrings for good IDE support and static analysis.
-- **Tested**: [`tests`](https://github.com/KurtBoehm/polyqr/blob/main/tests) contains `pytest`-based tests.
+
+The **full documentation** is available [on _Read the Docs_](https://svg-path-editor.readthedocs.io) while the `pytest`-based **test suite** is available in the [`tests` directory](https://github.com/KurtBoehm/polyqr/blob/main/tests).
 
 ## 📦 Installation
 
@@ -116,7 +117,7 @@ print(optimized.as_string(minify=True))
 
 ## 🧪 Testing
 
-The project includes `pytest`-based tests that cover most operations.
+The project includes `pytest`-based tests that cover the main operations and some of their edge cases.
 
 The development dependencies can be installed via the `dev` optional group:
 
