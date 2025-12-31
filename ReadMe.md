@@ -17,7 +17,7 @@ This package is on PyPI and can be installed with `pip`:
 pip install svg-path-editor
 ```
 
-## 🚀 Basic usage
+## 🚀 Basic Usage
 
 ```python
 from svg_path_editor import SvgPath, change_path_origin, optimize_path, reverse_path
