@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import pytest
 
 from svg_path_editor.path_parser import PathParser

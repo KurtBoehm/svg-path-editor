@@ -54,12 +54,12 @@ def change_path_origin(
     match new_first_item.get_type().upper():
         case "S":
             new_svg.change_type(
-                new_first_item,
+                new_origin_index,
                 "c" if new_first_item.relative else "C",
             )
         case "T":
             new_svg.change_type(
-                new_first_item,
+                new_origin_index,
                 "q" if new_first_item.relative else "Q",
             )
         case _:
@@ -70,7 +70,7 @@ def change_path_origin(
         item = path[i]
         match item.get_type().upper():
             case "Z":
-                new_svg.change_type(item, "L")
+                new_svg.change_type(i, "L")
             case "M":
                 break
             case _:

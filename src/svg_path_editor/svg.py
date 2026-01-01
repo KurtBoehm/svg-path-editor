@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Final, TypedDict, final, override
 
@@ -145,7 +146,7 @@ class SvgItem:
 
         cls = mapping.get(cmd.upper())
         if not cls:
-            raise ValueError(f"Invalid SVG item type: {cmd!r}")
+            raise ValueError(f"Invalid SVG command type: {cmd!r}")
         return cls(values, relative)
 
     @staticmethod
@@ -191,7 +192,7 @@ class SvgItem:
 
         result = SvgItem.make(parts)
         result.previous_point = previous.target_location()
-        result.absolute_points = [SvgPoint(target.x, target.y)]
+        result.absolute_points = [target]
         result.reset_control_points(previous)
 
         control_points = origin.absolute_control_points
@@ -253,15 +254,10 @@ class SvgItem:
         if self._relative == new_relative:
             return
 
+        self._relative = False
         dx = -self.previous_point.x if new_relative else self.previous_point.x
         dy = -self.previous_point.y if new_relative else self.previous_point.y
-
-        if self.values:
-            for i in range(0, len(self.values), 2):
-                self.values[i] += dx
-                if i + 1 < len(self.values):
-                    self.values[i + 1] += dy
-
+        self.translate(dx, dy)
         self._relative = new_relative
 
     def refresh_absolute_control_points(
@@ -316,9 +312,9 @@ class SvgItem:
         clone.previous_point = Point(self.previous_point.x, self.previous_point.y)
         return clone
 
-    def translate(self, x: float, y: float, force: bool = False) -> SvgItem:
+    def translate(self, x: float, y: float, force: bool = False) -> None:
         """
-        Return a translated copy.
+        Translate in place.
 
         Relative items are translated only if ``force`` is true; otherwise their
         stored deltas are left unchanged.
@@ -327,15 +323,33 @@ class SvgItem:
         :param y: Translation in y direction.
         :param force: Also adjust relative coordinates.
         """
+        if not self.relative or force:
+            for idx in range(len(self.values)):
+                self.values[idx] += x if idx % 2 == 0 else y
+
+    def translated(self, x: float, y: float, force: bool = False) -> SvgItem:
+        """
+        Return a translated copy. See :method:`translate` for details.
+
+        :param x: Translation in x direction.
+        :param y: Translation in y direction.
+        :param force: Also adjust relative coordinates.
+        """
         item = self.clone()
-
-        if not item.relative or force:
-            for idx in range(len(item.values)):
-                item.values[idx] += x if idx % 2 == 0 else y
-
+        item.translate(x, y, force=force)
         return item
 
-    def scale(self, kx: float, ky: float) -> SvgItem:
+    def scale(self, kx: float, ky: float) -> None:
+        """
+        Translate in place.
+
+        :param kx: Scale factor for x coordinates.
+        :param ky: Scale factor for y coordinates.
+        """
+        for idx in range(len(self.values)):
+            self.values[idx] *= kx if idx % 2 == 0 else ky
+
+    def scaled(self, kx: float, ky: float) -> SvgItem:
         """
         Return a scaled copy.
 
@@ -343,15 +357,12 @@ class SvgItem:
         :param ky: Scale factor for y coordinates.
         """
         item = self.clone()
-        for idx in range(len(item.values)):
-            item.values[idx] *= kx if idx % 2 == 0 else ky
+        item.scale(kx, ky)
         return item
 
-    def rotate(
-        self, ox: float, oy: float, degrees: float, force: bool = False
-    ) -> SvgItem:
+    def rotate(self, ox: float, oy: float, degrees: float, force: bool = False) -> None:
         """
-        Return a rotated copy around ``(ox, oy)``.
+        Rotate the item in place around ``(ox, oy)``.
 
         For relative items, rotation is performed around ``(0, 0)`` unless
         ``force`` is true.
@@ -361,20 +372,31 @@ class SvgItem:
         :param degrees: Rotation angle in degrees.
         :param force: Rotate relative coordinates around ``(ox, oy)``.
         """
-        item = self.clone()
-
         rad = math.radians(degrees)
         cosv, sinv = math.cos(rad), math.sin(rad)
 
-        for i in range(0, len(item.values), 2):
-            px, py = item.values[i], item.values[i + 1]
-            cx, cy = (0, 0) if (item.relative and not force) else (ox, oy)
+        for i in range(0, len(self.values), 2):
+            px, py = self.values[i], self.values[i + 1]
+            cx, cy = (0, 0) if self._relative and not force else (ox, oy)
             dx, dy = px - cx, py - cy
             qx = cx + dx * cosv - dy * sinv
             qy = cy + dx * sinv + dy * cosv
-            item.values[i] = qx
-            item.values[i + 1] = qy
+            self.values[i] = qx
+            self.values[i + 1] = qy
 
+    def rotated(
+        self, ox: float, oy: float, degrees: float, force: bool = False
+    ) -> SvgItem:
+        """
+        Return a rotated copy around ``(ox, oy)``. See :meth:`rotate` for details.
+
+        :param ox: Rotation origin x coordinate.
+        :param oy: Rotation origin y coordinate.
+        :param degrees: Rotation angle in degrees.
+        :param force: Rotate relative coordinates around ``(ox, oy)``.
+        """
+        item = self.clone()
+        item.rotate(ox, oy, degrees, force=force)
         return item
 
     def target_location(self) -> SvgPoint:
@@ -445,7 +467,7 @@ class SvgItem:
         self,
         decimals: int | None = None,
         minify: bool = False,
-        trailing_items: list[SvgItem] | None = None,
+        trailing_items: Iterable["SvgItem"] = (),
     ) -> str:
         """
         Serialize this command into an SVG path fragment.
@@ -458,7 +480,6 @@ class SvgItem:
         :param trailing_items: Additional items of the same type to serialize
             in the same command group.
         """
-        trailing_items = trailing_items or []
         flattened = self.values + [v for it in trailing_items for v in it.values]
         str_values = [format_number(it, decimals, minify) for it in flattened]
         return " ".join([self.get_type(), *str_values])
@@ -549,8 +570,7 @@ class SmoothCurveTo(SvgItem):
         if isinstance(previous_target, (CurveTo, SmoothCurveTo)):
             prev_loc = previous_target.target_location()
             prev_control = previous_target.absolute_control_points[1]
-            x, y = 2 * prev_loc.x - prev_control.x, 2 * prev_loc.y - prev_control.y
-            pt = Point(x, y)
+            pt = Point(2 * prev_loc.x - prev_control.x, 2 * prev_loc.y - prev_control.y)
             self.absolute_control_points.append(SvgControlPoint(pt, [prev_loc]))
         else:
             current = (
@@ -678,8 +698,7 @@ class SmoothQuadraticBezierCurveTo(SvgItem):
 
         prev_loc = previous_target.target_location()
         prev_control = previous_target.absolute_control_points[0]
-        x, y = 2 * prev_loc.x - prev_control.x, 2 * prev_loc.y - prev_control.y
-        pt = Point(x, y)
+        pt = Point(2 * prev_loc.x - prev_control.x, 2 * prev_loc.y - prev_control.y)
         ctrl = SvgControlPoint(pt, [prev_loc, self.target_location()])
         self.absolute_control_points = [ctrl]
 
@@ -727,11 +746,9 @@ class HorizontalLineTo(SvgItem):
     key = "H"
 
     @override
-    def rotate(
-        self, ox: float, oy: float, degrees: float, force: bool = False
-    ) -> SvgItem:
+    def rotate(self, ox: float, oy: float, degrees: float, force: bool = False) -> None:
         """
-        Return a rotated copy.
+        Rotate in place.
 
         Only a rotation by 180 degrees affects pure horizontal segments. Other
         angles are handled at the path level by type changes.
@@ -741,10 +758,8 @@ class HorizontalLineTo(SvgItem):
         :param degrees: Rotation angle in degrees.
         :param force: Unused for this subclass.
         """
-        item = self.clone()
         if degrees == 180:
-            item.values[0] = -item.values[0]
-        return item
+            self.values[0] = -self.values[0]
 
     @override
     def refresh_absolute_points(self, origin: Point, previous: SvgItem | None) -> None:
@@ -777,11 +792,9 @@ class VerticalLineTo(SvgItem):
     key = "V"
 
     @override
-    def rotate(
-        self, ox: float, oy: float, degrees: float, force: bool = False
-    ) -> SvgItem:
+    def rotate(self, ox: float, oy: float, degrees: float, force: bool = False) -> None:
         """
-        Return a rotated copy.
+        Rotate in place.
 
         Only a rotation by 180 degrees affects pure vertical segments. Other
         angles are handled at the path level by type changes.
@@ -791,15 +804,13 @@ class VerticalLineTo(SvgItem):
         :param degrees: Rotation angle in degrees.
         :param force: Unused for this subclass.
         """
-        item = self.clone()
         if degrees == 180:
-            item.values[0] = -item.values[0]
-        return item
+            self.values[0] = -self.values[0]
 
     @override
-    def translate(self, x: float, y: float, force: bool = False) -> SvgItem:
+    def translate(self, x: float, y: float, force: bool = False) -> None:
         """
-        Return a translated copy.
+        Translate in place.
 
         For absolute vertical lines, only the y coordinate is translated.
 
@@ -807,24 +818,20 @@ class VerticalLineTo(SvgItem):
         :param y: Translation in y direction.
         :param force: Unused for this subclass.
         """
-        item = self.clone()
-        if not item.relative:
-            item.values[0] += y
-        return item
+        if not self.relative:
+            self.values[0] += y
 
     @override
-    def scale(self, kx: float, ky: float) -> SvgItem:
+    def scale(self, kx: float, ky: float) -> None:
         """
-        Return a scaled copy.
+        Scale in place.
 
         For vertical lines only y scaling applies.
 
         :param kx: Scale factor for x coordinates (ignored).
         :param ky: Scale factor for y coordinates.
         """
-        item = self.clone()
-        item.values[0] *= ky
-        return item
+        self.values[0] *= ky
 
     @override
     def refresh_absolute_points(self, origin: Point, previous: SvgItem | None) -> None:
@@ -857,9 +864,9 @@ class EllipticalArcTo(SvgItem):
     key = "A"
 
     @override
-    def translate(self, x: float, y: float, force: bool = False) -> SvgItem:
+    def translate(self, x: float, y: float, force: bool = False) -> None:
         """
-        Return a translated copy.
+        Translate in place.
 
         For absolute arcs, only the arc target coordinates are translated.
 
@@ -867,18 +874,14 @@ class EllipticalArcTo(SvgItem):
         :param y: Translation in y direction.
         :param force: Unused for this subclass.
         """
-        item = self.clone()
-        if not item.relative:
-            item.values[5] += x
-            item.values[6] += y
-        return item
+        if not self.relative:
+            self.values[5] += x
+            self.values[6] += y
 
     @override
-    def rotate(
-        self, ox: float, oy: float, degrees: float, force: bool = False
-    ) -> SvgItem:
+    def rotate(self, ox: float, oy: float, degrees: float, force: bool = False) -> None:
         """
-        Return a rotated copy.
+        Rotate in place.
 
         The arc’s rotation angle and target coordinates are updated accordingly.
 
@@ -887,24 +890,21 @@ class EllipticalArcTo(SvgItem):
         :param degrees: Rotation angle in degrees.
         :param force: Rotate relative coordinates around ``(ox, oy)``.
         """
-        item = self.clone()
-
-        item.values[2] = (item.values[2] + degrees) % 360
+        self.values[2] = (self.values[2] + degrees) % 360
         rad = math.radians(degrees)
         cosv, sinv = math.cos(rad), math.sin(rad)
-        px, py = item.values[5], item.values[6]
-        x, y = (0, 0) if (item.relative and not force) else (ox, oy)
-        qx = (px - x) * cosv - (py - y) * sinv + x
-        qy = (px - x) * sinv + (py - y) * cosv + y
-        item.values[5] = qx
-        item.values[6] = qy
-
-        return item
+        px, py = self.values[5], self.values[6]
+        x, y = (0, 0) if (self.relative and not force) else (ox, oy)
+        dx, dy = px - x, py - y
+        qx = dx * cosv - dy * sinv + x
+        qy = dx * sinv + dy * cosv + y
+        self.values[5] = qx
+        self.values[6] = qy
 
     @override
-    def scale(self, kx: float, ky: float) -> SvgItem:
+    def scale(self, kx: float, ky: float) -> None:
         """
-        Return a scaled copy.
+        Scale in place
 
         Radii, rotation angle, target and sweep flag are updated to reflect the
         scaling factors.
@@ -912,35 +912,34 @@ class EllipticalArcTo(SvgItem):
         :param kx: Scale factor for x coordinates.
         :param ky: Scale factor for y coordinates.
         """
-        item = self.clone()
-        a, b = item.values[0], item.values[1]
-        angle = math.radians(item.values[2])
+        a, b = self.values[0], self.values[1]
+        angle = math.radians(self.values[2])
         cosv, sinv = math.cos(angle), math.sin(angle)
-        a = b * b * ky * ky * cosv * cosv + a * a * ky * ky * sinv * sinv
-        b2 = 2 * kx * ky * cosv * sinv * (b * b - a * a)
-        c = a * a * kx * kx * cosv * cosv + b * b * kx * kx * sinv * sinv
-        f = -(a * a * b * b * kx * kx * ky * ky)
-        det = b2 * b2 - 4 * a * c
-        val1 = math.sqrt((a - c) * (a - c) + b2 * b2)
 
-        # New rotation:
-        if b2 != 0:
-            item.values[2] = math.degrees(math.atan((c - a - val1) / b2))
+        ca = b * b * ky * ky * cosv * cosv + a * a * ky * ky * sinv * sinv
+        cb = 2 * kx * ky * cosv * sinv * (b * b - a * a)
+        cc = a * a * kx * kx * cosv * cosv + b * b * kx * kx * sinv * sinv
+        cf = -(a * a * b * b * kx * kx * ky * ky)
+        det = cb * cb - 4 * ca * cc
+        val1 = math.sqrt((ca - cc) * (ca - cc) + cb * cb)
+
+        # New rotation
+        if cb != 0:
+            self.values[2] = math.degrees(math.atan2(cc - ca - val1, cb))
         else:
-            item.values[2] = 0 if a < c else 90
+            self.values[2] = 0 if ca < cc else 90
 
         # New radii
         if det != 0:
-            item.values[0] = -math.sqrt(2 * det * f * ((a + c) + val1)) / det
-            item.values[1] = -math.sqrt(2 * det * f * ((a + c) - val1)) / det
+            self.values[0] = -math.sqrt(2 * det * cf * ((ca + cc) + val1)) / det
+            self.values[1] = -math.sqrt(2 * det * cf * ((ca + cc) - val1)) / det
 
         # New target
-        item.values[5] *= kx
-        item.values[6] *= ky
+        self.values[5] *= kx
+        self.values[6] *= ky
 
         # New sweep flag
-        item.values[4] = item.values[4] if kx * ky >= 0 else 1 - item.values[4]
-        return item
+        self.values[4] = self.values[4] if kx * ky >= 0 else 1 - self.values[4]
 
     @override
     def refresh_absolute_points(self, origin: Point, previous: SvgItem | None) -> None:
@@ -963,7 +962,7 @@ class EllipticalArcTo(SvgItem):
         self,
         decimals: int | None = None,
         minify: bool = False,
-        trailing_items: list[SvgItem] | None = None,
+        trailing_items: Iterable[SvgItem] = (),
     ) -> str:
         """
         Serialize this arc (and optionally trailing arcs) to an SVG path fragment.
@@ -972,7 +971,6 @@ class EllipticalArcTo(SvgItem):
         :param minify: Use a compact group representation.
         :param trailing_items: Additional arc items to serialize together.
         """
-        trailing_items = trailing_items or []
         if not minify:
             return super().as_string(decimals, minify, trailing_items)
 
@@ -1014,7 +1012,18 @@ class SvgPath:
         clone.refresh_absolute_positions()
         return clone
 
-    def translate(self, dx: float, dy: float) -> SvgPath:
+    def translate(self, dx: float, dy: float) -> None:
+        """
+        Translate in place.
+
+        :param dx: Translation in x direction.
+        :param dy: Translation in y direction.
+        """
+        for idx, it in enumerate(self.path):
+            it.translate(dx, dy, idx == 0)
+        self.refresh_absolute_positions()
+
+    def translated(self, dx: float, dy: float) -> SvgPath:
         """
         Return a translated copy of this path.
 
@@ -1022,13 +1031,21 @@ class SvgPath:
         :param dy: Translation in y direction.
         """
         new_path = self.clone()
-        new_path.path = [
-            it.translate(dx, dy, idx == 0) for idx, it in enumerate(self.path)
-        ]
-        new_path.refresh_absolute_positions()
+        new_path.translate(dx, dy)
         return new_path
 
-    def scale(self, kx: float, ky: float) -> SvgPath:
+    def scale(self, kx: float, ky: float) -> None:
+        """
+        Scale in place.
+
+        :param kx: Scale factor for x coordinates.
+        :param ky: Scale factor for y coordinates.
+        """
+        for it in self.path:
+            it.scale(kx, ky)
+        self.refresh_absolute_positions()
+
+    def scaled(self, kx: float, ky: float) -> SvgPath:
         """
         Return a scaled copy of this path.
 
@@ -1036,13 +1053,12 @@ class SvgPath:
         :param ky: Scale factor for y coordinates.
         """
         new_path = self.clone()
-        new_path.path = [it.scale(kx, ky) for it in self.path]
-        new_path.refresh_absolute_positions()
+        new_path.scale(kx, ky)
         return new_path
 
-    def rotate(self, ox: float, oy: float, degrees: float) -> SvgPath:
+    def rotate(self, ox: float, oy: float, degrees: float) -> None:
         """
-        Return a rotated copy of this path around ``(ox, oy)``.
+        Rotate in place around ``(ox, oy)``.
 
         May also normalize horizontal/vertical segments after rotation.
 
@@ -1052,46 +1068,48 @@ class SvgPath:
         """
         degrees %= 360
         if degrees == 0:
-            return self.clone()
+            return
 
-        new_path = self.clone()
-        items = new_path.path
-
-        for idx, it in enumerate(items):
-            last_instance_of = it.__class__
-
+        for idx, it in enumerate(self.path):
+            last_instance_of = type(it)
             if degrees != 180 and isinstance(it, (HorizontalLineTo, VerticalLineTo)):
                 new_type = LineTo.key.lower() if it.relative else LineTo.key
-                changed = new_path.change_type(it, new_type)
+                changed = self.change_type(idx, new_type)
                 if changed is not None:
                     it = changed
-                    items[idx] = it
 
-            items[idx] = it.rotate(ox, oy, degrees, idx == 0)
+            it.rotate(ox, oy, degrees, idx == 0)
 
             if degrees in (90, 270):
                 if last_instance_of is HorizontalLineTo:
-                    new_path.refresh_absolute_positions()
+                    self.refresh_absolute_positions()
                     new_type = (
                         VerticalLineTo.key.lower()
                         if it.relative
                         else VerticalLineTo.key
                     )
-                    it2 = new_path.change_type(items[idx], new_type)
-                    if it2 is not None:
-                        items[idx] = it2
+                    self.change_type(idx, new_type)
                 elif last_instance_of is VerticalLineTo:
-                    new_path.refresh_absolute_positions()
+                    self.refresh_absolute_positions()
                     new_type = (
                         HorizontalLineTo.key.lower()
                         if it.relative
                         else HorizontalLineTo.key
                     )
-                    it2 = new_path.change_type(items[idx], new_type)
-                    if it2 is not None:
-                        items[idx] = it2
+                    self.change_type(idx, new_type)
 
-        new_path.refresh_absolute_positions()
+        self.refresh_absolute_positions()
+
+    def rotated(self, ox: float, oy: float, degrees: float) -> SvgPath:
+        """
+        Return a rotated copy of this path. See :meth:`rotate` for details.
+
+        :param ox: Rotation origin x coordinate.
+        :param oy: Rotation origin y coordinate.
+        :param degrees: Rotation angle in degrees.
+        """
+        new_path = self.clone()
+        new_path.rotate(ox, oy, degrees)
         return new_path
 
     @property
@@ -1124,58 +1142,41 @@ class SvgPath:
         new_path.relative = new_relative
         return new_path
 
-    def delete(self, item: SvgItem) -> SvgPath:
+    def remove(self, item: SvgItem) -> None:
         """
-        Return a new path with the given item removed, if present.
+        Remove the given item.
 
         :param item: Item to remove.
+        :raises ValueError: If the item is not present.
         """
-        if item not in self.path:
-            return self.clone()
-        new_path = self.clone()
-        new_path.path.remove(new_path.path[self.path.index(item)])
-        new_path.refresh_absolute_positions()
-        return new_path
-
-    def insert(self, item: SvgItem, after: SvgItem | None = None) -> SvgPath:
-        """
-        Return a new path with ``item`` inserted.
-
-        The new item is inserted after ``after``, or appended if ``after`` is
-        ``None`` or not found.
-
-        :param item: Item to insert.
-        :param after: Item after which to insert, or ``None`` to append.
-        """
-        new_path = self.clone()
-        if after is not None and after in self.path:
-            idx = self.path.index(after)
-            new_path.path.insert(idx + 1, item)
-        else:
-            new_path.path.append(item)
-        new_path.refresh_absolute_positions()
-        return new_path
-
-    def change_type(self, item: SvgItem, new_type: str) -> SvgItem | None:
-        """
-        Change the command type of ``item`` in place within this path.
-
-        :param item: Item whose type should be changed.
-        :param new_type: New SVG command letter (e.g. ``"L"`` or ``"c"``).
-        :return: Newly created :class:`SvgItem` replacing ``item``, or ``None`` if
-            ``item`` is not in the path or is the first item.
-        """
-        if item not in self.path:
-            return None
-        idx = self.path.index(item)
-        if idx == 0:
-            return None
-
-        previous = self.path[idx - 1]
-        new_item = SvgItem.make_from(item, previous, new_type)
-        self.path[idx] = new_item
+        self.path.remove(item)
         self.refresh_absolute_positions()
-        return new_item
+
+    def insert(self, index: int, item: SvgItem) -> None:
+        """
+        Insert ``item`` before ``index``.
+
+        :param item: Index before which to insert.
+        :param item: Item to insert.
+        """
+        self.path.insert(index + 1, item)
+        self.refresh_absolute_positions()
+
+    def change_type(self, index: int, new_type: str) -> SvgItem | None:
+        """
+        Change the command type of the item at ``index`` in place.
+
+        :param index: The index of the item whose type should be changed.
+        :param new_type: New SVG command letter (e.g. ``"L"`` or ``"c"``).
+        :return: Newly created :class:`SvgItem` replacing the item at ``index``,
+            or ``None`` if ``index`` is not in the path or is the first item.
+        """
+        if index not in range(1, len(self.path)):
+            return None
+        previous = self.path[index - 1]
+        self.path[index] = SvgItem.make_from(self.path[index], previous, new_type)
+        self.refresh_absolute_positions()
+        return self.path[index]
 
     def as_string(self, decimals: int | None = None, minify: bool = False) -> str:
         """
@@ -1220,9 +1221,9 @@ class SvgPath:
             result.extend(controls)
         return result
 
-    def set_location(self, pt_reference: SvgPoint, to: Point) -> SvgPath:
+    def set_location(self, pt_reference: SvgPoint, to: Point) -> None:
         """
-        Return a new path with the given point moved to ``to``.
+        Move the given point to ``to``.
 
         The reference must come from a previously queried point list
         (e.g. :attr:`target_locations` or :attr:`control_locations`).
@@ -1230,23 +1231,11 @@ class SvgPath:
         :param pt_reference: Point (target or control) to be moved.
         :param to: New absolute location for the point.
         """
-        new_path = self.clone()
-        # Rebind to cloned items
         if isinstance(pt_reference, SvgControlPoint):
-            ref_item = pt_reference.item_reference
-            if ref_item in self.path:
-                idx = self.path.index(ref_item)
-                new_item = new_path.path[idx]
-                new_item.set_control_location(pt_reference.sub_index, to)
+            pt_reference.item_reference.set_control_location(pt_reference.sub_index, to)
         else:
-            ref_item = pt_reference.item_reference
-            if ref_item in self.path:
-                idx = self.path.index(ref_item)
-                new_item = new_path.path[idx]
-                new_item.set_target_location(to)
-
-        new_path.refresh_absolute_positions()
-        return new_path
+            pt_reference.item_reference.set_target_location(to)
+        self.refresh_absolute_positions()
 
     def refresh_absolute_positions(self) -> None:
         """

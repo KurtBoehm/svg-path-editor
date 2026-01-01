@@ -4,8 +4,6 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-from __future__ import annotations
-
 from typing import Final
 
 from .sub_path_bounds import get_sub_path_bounds
@@ -139,7 +137,7 @@ def optimize_relative_absolute(svg: SvgPath) -> SvgPath:
         Geometry is preserved; only representation changes.
     """
     new_svg = svg.clone()
-    length: int = len(new_svg.as_string(4, True))
+    length = len(new_svg.as_string(4, minify=True))
     origin: Final[Point] = Point(0, 0)
 
     for i, comp in enumerate(new_svg.path):
@@ -149,7 +147,7 @@ def optimize_relative_absolute(svg: SvgPath) -> SvgPath:
 
         # Toggle relativity and test string length.
         comp.relative = not comp.relative
-        new_length = len(new_svg.as_string(4, True))
+        new_length = len(new_svg.as_string(4, minify=True))
         if new_length < length:
             length = new_length
             comp.refresh(origin, previous)
@@ -308,12 +306,12 @@ def optimize_path(
         new_svg = optimize_relative_absolute(new_svg)
 
     if use_reverse:
-        length = len(new_svg.as_string(4, True))
+        length = len(new_svg.as_string(4, minify=True))
         non_reversed = new_svg.clone()
         new_svg = reverse_path(new_svg)
         if use_relative_absolute:
             new_svg = optimize_relative_absolute(new_svg)
-        after_length = len(new_svg.as_string(4, True))
+        after_length = len(new_svg.as_string(4, minify=True))
         if after_length >= length:
             new_svg = non_reversed
 

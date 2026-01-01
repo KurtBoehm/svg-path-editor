@@ -22,16 +22,16 @@ def test_convert_to_str() -> None:
 def test_transformations() -> None:
     """Geometric transformations are out-of-place."""
 
-    p = path.scale(kx=2, ky=2)
+    p = path.scaled(kx=2, ky=2)
     assert str(p) == "M -30 28 s 10 15 30 15 s 30 -15 30 -15 z"
     assert str(path) == original_str
 
-    p = path.translate(dx=1, dy=0.5)
+    p = path.translated(dx=1, dy=0.5)
     assert str(p) == "M -14 14.5 s 5 7.5 15 7.5 s 15 -7.5 15 -7.5 z"
     assert str(path) == original_str
 
-    p = path.rotate(ox=0, oy=0, degrees=90)
-    assert p.as_string(decimals=2) == "M -14 -15 s -7.5 5 -7.5 15 s 7.5 15 7.5 15 z"
+    p = path.rotated(ox=0, oy=0, degrees=90)
+    assert p.as_string(decimals=14) == "M -14 -15 s -7.5 5 -7.5 15 s 7.5 15 7.5 15 z"
     assert str(path) == original_str
 
 
