@@ -20,10 +20,10 @@ def test_translation():
     )
 
     ante_svg = SvgPath(ante)
-    post_svg = ante_svg.translated(0.1, 0.2)
+    post_svg = ante_svg.translated("0.1", "0.2")
 
     assert str(ante_svg) == ante
-    assert post_svg.as_string(decimals=13) == post
+    assert str(post_svg) == post
 
 
 def test_rotation():
@@ -32,21 +32,21 @@ def test_rotation():
         "C -150 130 -170 110 -170 90 L -170 30 Q -170 10 -150 10 Z M -40 40 "
         "C -20 60 -20 90 -40 110 C -60 130 -90 130 -110 110 C -130 90 -130 60 -110 40 "
         "C -90 20 -60 20 -40 40 Z M -70 60 a 10 15 120 1 1 0 20 "
-        "a 10 15 120 1 1 -0 -20 z M -120 80 v 20 h -20 v -20 h 20 z"
+        "a 10 15 120 1 1 0 -20 z M -120 80 v 20 h -20 v -20 h 20 z"
     )
     post180 = (
         "M -10 -10 L -110 -10 A 20 20 180 0 1 -130 -30 L -130 -130 "
         "C -130 -150 -110 -170 -90 -170 L -30 -170 Q -10 -170 -10 -150 Z "
         "M -40 -40 C -60 -20 -90 -20 -110 -40 C -130 -60 -130 -90 -110 -110 "
         "C -90 -130 -60 -130 -40 -110 C -20 -90 -20 -60 -40 -40 Z M -60 -70 "
-        "a 10 15 210 1 1 -20 0 a 10 15 210 1 1 20 -0 z M -80 -120 h -20 v -20 h 20 v 20 "
+        "a 10 15 210 1 1 -20 0 a 10 15 210 1 1 20 0 z M -80 -120 h -20 v -20 h 20 v 20 "
         "z"
     )
     post270 = (
         "M 10 -10 L 10 -110 A 20 20 270 0 1 30 -130 L 130 -130 "
         "C 150 -130 170 -110 170 -90 L 170 -30 Q 170 -10 150 -10 Z M 40 -40 "
         "C 20 -60 20 -90 40 -110 C 60 -130 90 -130 110 -110 C 130 -90 130 -60 110 -40 "
-        "C 90 -20 60 -20 40 -40 Z M 70 -60 a 10 15 300 1 1 -0 -20 a 10 15 300 1 1 0 20 "
+        "C 90 -20 60 -20 40 -40 Z M 70 -60 a 10 15 300 1 1 0 -20 a 10 15 300 1 1 0 20 "
         "z M 120 -80 v -20 h 20 v 20 h -20 z"
     )
 
@@ -56,9 +56,9 @@ def test_rotation():
     post270_svg = ante_svg.rotated(0, 0, 270)
 
     assert str(ante_svg) == ante
-    assert post90_svg.as_string(decimals=13) == post90
-    assert post180_svg.as_string(decimals=13) == post180
-    assert post270_svg.as_string(decimals=13) == post270
+    assert str(post90_svg) == post90
+    assert str(post180_svg) == post180
+    assert str(post270_svg) == post270
 
 
 def test_scale():
@@ -70,7 +70,7 @@ def test_scale():
     )
 
     ante_svg = SvgPath(ante)
-    post_svg = ante_svg.scaled(0.1, 0.2)
+    post_svg = ante_svg.scaled("0.1", "0.2")
 
     assert str(ante_svg) == ante
     assert post_svg.as_string(decimals=4) == post

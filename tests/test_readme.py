@@ -31,7 +31,7 @@ def test_transformations() -> None:
     assert str(path) == original_str
 
     p = path.rotated(ox=0, oy=0, degrees=90)
-    assert p.as_string(decimals=14) == "M -14 -15 s -7.5 5 -7.5 15 s 7.5 15 7.5 15 z"
+    assert str(p) == "M -14 -15 s -7.5 5 -7.5 15 s 7.5 15 7.5 15 z"
     assert str(path) == original_str
 
 

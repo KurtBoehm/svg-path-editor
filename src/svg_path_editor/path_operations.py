@@ -137,7 +137,7 @@ def optimize_relative_absolute(svg: SvgPath) -> SvgPath:
         Geometry is preserved; only representation changes.
     """
     new_svg = svg.clone()
-    length = len(new_svg.as_string(4, minify=True))
+    length = len(new_svg.as_string(minify=True))
     origin: Final[Point] = Point(0, 0)
 
     for i, comp in enumerate(new_svg.path):
@@ -147,7 +147,7 @@ def optimize_relative_absolute(svg: SvgPath) -> SvgPath:
 
         # Toggle relativity and test string length.
         comp.relative = not comp.relative
-        new_length = len(new_svg.as_string(4, minify=True))
+        new_length = len(new_svg.as_string(minify=True))
         if new_length < length:
             length = new_length
             comp.refresh(origin, previous)
@@ -306,12 +306,12 @@ def optimize_path(
         new_svg = optimize_relative_absolute(new_svg)
 
     if use_reverse:
-        length = len(new_svg.as_string(4, minify=True))
+        length = len(new_svg.as_string(minify=True))
         non_reversed = new_svg.clone()
         new_svg = reverse_path(new_svg)
         if use_relative_absolute:
             new_svg = optimize_relative_absolute(new_svg)
-        after_length = len(new_svg.as_string(4, minify=True))
+        after_length = len(new_svg.as_string(minify=True))
         if after_length >= length:
             new_svg = non_reversed
 

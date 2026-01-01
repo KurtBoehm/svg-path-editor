@@ -6,13 +6,15 @@
 
 from __future__ import annotations
 
-import math
 import re
 from collections.abc import Iterable
-from dataclasses import dataclass
-from typing import Final, TypedDict, final, override
+from decimal import Decimal, getcontext
+from typing import TYPE_CHECKING, Final, TypedDict, final, override
 
 from .path_parser import PathParser
+
+if TYPE_CHECKING:
+    import sympy as sp
 
 __all__ = [
     "Point",
@@ -33,6 +35,8 @@ __all__ = [
     "SvgPath",
 ]
 
+Number = Decimal | int | float | str
+
 _number_strip_trailing_zeros: Final = re.compile(r"^(-?[0-9]*\.([0-9]*[1-9])?)0*$")
 _number_strip_dot: Final = re.compile(r"\.$")
 _number_leading_zero: Final = re.compile(r"^(-?)0\.")
@@ -41,16 +45,36 @@ _minify_negative: Final = re.compile(r" -")
 _minify_dot_gap: Final = re.compile(r"(\.[0-9]+) (?=\.)")
 
 
-def format_number(v: float, d: int | None, minify: bool = False) -> str:
+def _dec_to_rat(x: Decimal) -> "sp.Expr":
     """
-    Format a float with optional fixed decimals and SVG number minification.
+    Convert a ``Decimal`` to a SymPy ``Rational``
+    using the exact decimal representation.
+    """
+    import sympy as sp
+
+    return sp.Rational(str(x))
+
+
+def _rat_to_dec(x: "sp.Expr") -> Decimal:
+    """
+    Convert a SymPy expression to ``Decimal`` with current precision.
+
+    The result is evaluated to a decimal string using the current
+    ``Decimal`` context precision and then converted to ``Decimal``.
+    """
+    return Decimal(str(x.evalf(n=getcontext().prec)))
+
+
+def format_number(v: Decimal, d: int | None, minify: bool = False) -> str:
+    """
+    Format a ``Decimal`` with optional fixed decimals and SVG number minification.
 
     :param v: Value to format.
     :param d: Number of decimal places, or ``None`` for default string conversion.
     :param minify: Apply SVG-oriented minification (strip trailing zeros,
         leading zero before decimal, etc.).
     """
-    s = f"{v:.{d}f}" if d is not None else str(v)
+    s = f"{v:.{d}f}" if d is not None else f"{v:f}"
     s = _number_strip_trailing_zeros.sub(r"\1", s)
     s = _number_strip_dot.sub("", s)
     if minify:
@@ -58,12 +82,12 @@ def format_number(v: float, d: int | None, minify: bool = False) -> str:
     return s
 
 
-@dataclass
 class Point:
     """Simple 2D point."""
 
-    x: float
-    y: float
+    def __init__(self, x: Number, y: Number) -> None:
+        self.x: Decimal = Decimal(x)
+        self.y: Decimal = Decimal(y)
 
 
 class SvgPoint(Point):
@@ -73,7 +97,7 @@ class SvgPoint(Point):
     Instances hold a back-reference to the :class:`SvgItem` that owns them.
     """
 
-    def __init__(self, x: float, y: float) -> None:
+    def __init__(self, x: Number, y: Number) -> None:
         """
         :param x: x coordinate.
         :param y: y coordinate.
@@ -103,13 +127,13 @@ class SvgControlPoint(SvgPoint):
 class SvgItem:
     """Base class for a single SVG path command and its numeric values."""
 
-    def __init__(self, values: list[float], relative: bool) -> None:
+    def __init__[T: Number](self, values: list[T], relative: bool) -> None:
         """
         :param values: Command parameters as a flat list of numbers.
         :param relative: Whether values are stored in relative coordinates.
         """
         self._relative: bool = relative
-        self.values: list[float] = values
+        self.values: list[Decimal] = [Decimal(v) for v in values]
         self.previous_point: Point = Point(0, 0)
         self.absolute_points: list[SvgPoint] = []
         self.absolute_control_points: list[SvgControlPoint] = []
@@ -129,7 +153,7 @@ class SvgItem:
 
         cmd = raw_item[0]
         relative = cmd.islower()
-        values = [float(it) for it in raw_item[1:]]
+        values = [Decimal(it) for it in raw_item[1:]]
 
         mapping: dict[str, type[SvgItem]] = {
             MoveTo.key: MoveTo,
@@ -312,7 +336,7 @@ class SvgItem:
         clone.previous_point = Point(self.previous_point.x, self.previous_point.y)
         return clone
 
-    def translate(self, x: float, y: float, force: bool = False) -> None:
+    def translate(self, x: Number, y: Number, force: bool = False) -> None:
         """
         Translate in place.
 
@@ -323,11 +347,12 @@ class SvgItem:
         :param y: Translation in y direction.
         :param force: Also adjust relative coordinates.
         """
+        x, y = Decimal(x), Decimal(y)
         if not self.relative or force:
             for idx in range(len(self.values)):
                 self.values[idx] += x if idx % 2 == 0 else y
 
-    def translated(self, x: float, y: float, force: bool = False) -> SvgItem:
+    def translated(self, x: Number, y: Number, force: bool = False) -> SvgItem:
         """
         Return a translated copy. See :method:`translate` for details.
 
@@ -339,17 +364,18 @@ class SvgItem:
         item.translate(x, y, force=force)
         return item
 
-    def scale(self, kx: float, ky: float) -> None:
+    def scale(self, kx: Number, ky: Number) -> None:
         """
         Translate in place.
 
         :param kx: Scale factor for x coordinates.
         :param ky: Scale factor for y coordinates.
         """
+        kx, ky = Decimal(kx), Decimal(ky)
         for idx in range(len(self.values)):
             self.values[idx] *= kx if idx % 2 == 0 else ky
 
-    def scaled(self, kx: float, ky: float) -> SvgItem:
+    def scaled(self, kx: Number, ky: Number) -> SvgItem:
         """
         Return a scaled copy.
 
@@ -360,7 +386,9 @@ class SvgItem:
         item.scale(kx, ky)
         return item
 
-    def rotate(self, ox: float, oy: float, degrees: float, force: bool = False) -> None:
+    def rotate(
+        self, ox: Number, oy: Number, degrees: Number, force: bool = False
+    ) -> None:
         """
         Rotate the item in place around ``(ox, oy)``.
 
@@ -372,8 +400,11 @@ class SvgItem:
         :param degrees: Rotation angle in degrees.
         :param force: Rotate relative coordinates around ``(ox, oy)``.
         """
-        rad = math.radians(degrees)
-        cosv, sinv = math.cos(rad), math.sin(rad)
+        import sympy as sp
+
+        ox, oy, degrees = Decimal(ox), Decimal(oy), Decimal(degrees)
+        angle = sp.rad(_dec_to_rat(degrees))
+        cosv, sinv = _rat_to_dec(sp.cos(angle)), _rat_to_dec(sp.sin(angle))
 
         for i in range(0, len(self.values), 2):
             px, py = self.values[i], self.values[i + 1]
@@ -385,7 +416,7 @@ class SvgItem:
             self.values[i + 1] = qy
 
     def rotated(
-        self, ox: float, oy: float, degrees: float, force: bool = False
+        self, ox: Number, oy: Number, degrees: Number, force: bool = False
     ) -> SvgItem:
         """
         Return a rotated copy around ``(ox, oy)``. See :meth:`rotate` for details.
@@ -666,8 +697,8 @@ class QuadraticBezierCurveTo(SvgItem):
         a = previous_target.target_location()
         b = self.target_location()
         d = a if self.relative else Point(0, 0)
-        self.values[0] = 0.5 * (a.x + b.x) - d.x
-        self.values[1] = 0.5 * (a.y + b.y) - d.y
+        self.values[0] = (a.x + b.x) / 2 - d.x
+        self.values[1] = (a.y + b.y) / 2 - d.y
 
 
 @final
@@ -746,7 +777,9 @@ class HorizontalLineTo(SvgItem):
     key = "H"
 
     @override
-    def rotate(self, ox: float, oy: float, degrees: float, force: bool = False) -> None:
+    def rotate(
+        self, ox: Number, oy: Number, degrees: Number, force: bool = False
+    ) -> None:
         """
         Rotate in place.
 
@@ -758,7 +791,7 @@ class HorizontalLineTo(SvgItem):
         :param degrees: Rotation angle in degrees.
         :param force: Unused for this subclass.
         """
-        if degrees == 180:
+        if Decimal(degrees) == Decimal(180):
             self.values[0] = -self.values[0]
 
     @override
@@ -792,7 +825,9 @@ class VerticalLineTo(SvgItem):
     key = "V"
 
     @override
-    def rotate(self, ox: float, oy: float, degrees: float, force: bool = False) -> None:
+    def rotate(
+        self, ox: Number, oy: Number, degrees: Number, force: bool = False
+    ) -> None:
         """
         Rotate in place.
 
@@ -804,11 +839,11 @@ class VerticalLineTo(SvgItem):
         :param degrees: Rotation angle in degrees.
         :param force: Unused for this subclass.
         """
-        if degrees == 180:
+        if Decimal(degrees) == Decimal(180):
             self.values[0] = -self.values[0]
 
     @override
-    def translate(self, x: float, y: float, force: bool = False) -> None:
+    def translate(self, x: Number, y: Number, force: bool = False) -> None:
         """
         Translate in place.
 
@@ -819,10 +854,10 @@ class VerticalLineTo(SvgItem):
         :param force: Unused for this subclass.
         """
         if not self.relative:
-            self.values[0] += y
+            self.values[0] += Decimal(y)
 
     @override
-    def scale(self, kx: float, ky: float) -> None:
+    def scale(self, kx: Number, ky: Number) -> None:
         """
         Scale in place.
 
@@ -831,7 +866,7 @@ class VerticalLineTo(SvgItem):
         :param kx: Scale factor for x coordinates (ignored).
         :param ky: Scale factor for y coordinates.
         """
-        self.values[0] *= ky
+        self.values[0] *= Decimal(ky)
 
     @override
     def refresh_absolute_points(self, origin: Point, previous: SvgItem | None) -> None:
@@ -864,7 +899,7 @@ class EllipticalArcTo(SvgItem):
     key = "A"
 
     @override
-    def translate(self, x: float, y: float, force: bool = False) -> None:
+    def translate(self, x: Number, y: Number, force: bool = False) -> None:
         """
         Translate in place.
 
@@ -875,11 +910,13 @@ class EllipticalArcTo(SvgItem):
         :param force: Unused for this subclass.
         """
         if not self.relative:
-            self.values[5] += x
-            self.values[6] += y
+            self.values[5] += Decimal(x)
+            self.values[6] += Decimal(y)
 
     @override
-    def rotate(self, ox: float, oy: float, degrees: float, force: bool = False) -> None:
+    def rotate(
+        self, ox: Number, oy: Number, degrees: Number, force: bool = False
+    ) -> None:
         """
         Rotate in place.
 
@@ -890,11 +927,15 @@ class EllipticalArcTo(SvgItem):
         :param degrees: Rotation angle in degrees.
         :param force: Rotate relative coordinates around ``(ox, oy)``.
         """
+        import sympy as sp
+
+        ox, oy, degrees = Decimal(ox), Decimal(oy), Decimal(degrees)
+
         self.values[2] = (self.values[2] + degrees) % 360
-        rad = math.radians(degrees)
-        cosv, sinv = math.cos(rad), math.sin(rad)
+        angle = sp.rad(_dec_to_rat(degrees))
+        cosv, sinv = _rat_to_dec(sp.cos(angle)), _rat_to_dec(sp.sin(angle))
         px, py = self.values[5], self.values[6]
-        x, y = (0, 0) if (self.relative and not force) else (ox, oy)
+        x, y = (0, 0) if self.relative and not force else (ox, oy)
         dx, dy = px - x, py - y
         qx = dx * cosv - dy * sinv + x
         qy = dx * sinv + dy * cosv + y
@@ -902,7 +943,7 @@ class EllipticalArcTo(SvgItem):
         self.values[6] = qy
 
     @override
-    def scale(self, kx: float, ky: float) -> None:
+    def scale(self, kx: Number, ky: Number) -> None:
         """
         Scale in place
 
@@ -912,27 +953,37 @@ class EllipticalArcTo(SvgItem):
         :param kx: Scale factor for x coordinates.
         :param ky: Scale factor for y coordinates.
         """
-        a, b = self.values[0], self.values[1]
-        angle = math.radians(self.values[2])
-        cosv, sinv = math.cos(angle), math.sin(angle)
+        import sympy as sp
 
-        ca = b * b * ky * ky * cosv * cosv + a * a * ky * ky * sinv * sinv
-        cb = 2 * kx * ky * cosv * sinv * (b * b - a * a)
-        cc = a * a * kx * kx * cosv * cosv + b * b * kx * kx * sinv * sinv
-        cf = -(a * a * b * b * kx * kx * ky * ky)
+        kx, ky = Decimal(kx), Decimal(ky)
+
+        a, b = _dec_to_rat(self.values[0]), _dec_to_rat(self.values[1])
+        degrees = _dec_to_rat(self.values[2])
+        rkx, rky = _dec_to_rat(kx), _dec_to_rat(ky)
+        angle = sp.rad(degrees)
+        cosv, sinv = sp.cos(angle), sp.sin(angle)
+
+        ca = b * b * rky * rky * cosv * cosv + a * a * rky * rky * sinv * sinv
+        cb = 2 * rkx * rky * cosv * sinv * (b * b - a * a)
+        cc = a * a * rkx * rkx * cosv * cosv + b * b * rkx * rkx * sinv * sinv
+        cf = -(a * a * b * b * rkx * rkx * rky * rky)
         det = cb * cb - 4 * ca * cc
-        val1 = math.sqrt((ca - cc) * (ca - cc) + cb * cb)
+        val1 = sp.sqrt((ca - cc) * (ca - cc) + cb * cb)
 
         # New rotation
-        if cb != 0:
-            self.values[2] = math.degrees(math.atan2(cc - ca - val1, cb))
+        if not cb.equals(0):
+            # atan2-style expression in degrees, using SymPy
+            self.values[2] = _rat_to_dec(sp.deg(sp.atan2(cc - ca - val1, cb)))
         else:
-            self.values[2] = 0 if ca < cc else 90
+            # Fall back to axis-aligned orientation
+            self.values[2] = Decimal(0) if ca < cc else Decimal(90)
 
         # New radii
-        if det != 0:
-            self.values[0] = -math.sqrt(2 * det * cf * ((ca + cc) + val1)) / det
-            self.values[1] = -math.sqrt(2 * det * cf * ((ca + cc) - val1)) / det
+        if not det.equals(0):
+            # Use SymPy throughout and convert back at the end
+            f = 2 * det * cf
+            self.values[0] = _rat_to_dec(-sp.sqrt(f * ((ca + cc) + val1)) / det)
+            self.values[1] = _rat_to_dec(-sp.sqrt(f * ((ca + cc) - val1)) / det)
 
         # New target
         self.values[5] *= kx
@@ -1012,7 +1063,7 @@ class SvgPath:
         clone.refresh_absolute_positions()
         return clone
 
-    def translate(self, dx: float, dy: float) -> None:
+    def translate(self, dx: Number, dy: Number) -> None:
         """
         Translate in place.
 
@@ -1023,7 +1074,7 @@ class SvgPath:
             it.translate(dx, dy, idx == 0)
         self.refresh_absolute_positions()
 
-    def translated(self, dx: float, dy: float) -> SvgPath:
+    def translated(self, dx: Number, dy: Number) -> SvgPath:
         """
         Return a translated copy of this path.
 
@@ -1034,7 +1085,7 @@ class SvgPath:
         new_path.translate(dx, dy)
         return new_path
 
-    def scale(self, kx: float, ky: float) -> None:
+    def scale(self, kx: Number, ky: Number) -> None:
         """
         Scale in place.
 
@@ -1045,7 +1096,7 @@ class SvgPath:
             it.scale(kx, ky)
         self.refresh_absolute_positions()
 
-    def scaled(self, kx: float, ky: float) -> SvgPath:
+    def scaled(self, kx: Number, ky: Number) -> SvgPath:
         """
         Return a scaled copy of this path.
 
@@ -1056,7 +1107,7 @@ class SvgPath:
         new_path.scale(kx, ky)
         return new_path
 
-    def rotate(self, ox: float, oy: float, degrees: float) -> None:
+    def rotate(self, ox: Number, oy: Number, degrees: Number) -> None:
         """
         Rotate in place around ``(ox, oy)``.
 
@@ -1066,13 +1117,15 @@ class SvgPath:
         :param oy: Rotation origin y coordinate.
         :param degrees: Rotation angle in degrees.
         """
-        degrees %= 360
+        degrees = Decimal(degrees) % 360
         if degrees == 0:
             return
 
         for idx, it in enumerate(self.path):
             last_instance_of = type(it)
-            if degrees != 180 and isinstance(it, (HorizontalLineTo, VerticalLineTo)):
+            if degrees != Decimal(180) and isinstance(
+                it, (HorizontalLineTo, VerticalLineTo)
+            ):
                 new_type = LineTo.key.lower() if it.relative else LineTo.key
                 changed = self.change_type(idx, new_type)
                 if changed is not None:
@@ -1080,7 +1133,7 @@ class SvgPath:
 
             it.rotate(ox, oy, degrees, idx == 0)
 
-            if degrees in (90, 270):
+            if degrees in (Decimal(90), Decimal(270)):
                 if last_instance_of is HorizontalLineTo:
                     self.refresh_absolute_positions()
                     new_type = (
@@ -1100,7 +1153,7 @@ class SvgPath:
 
         self.refresh_absolute_positions()
 
-    def rotated(self, ox: float, oy: float, degrees: float) -> SvgPath:
+    def rotated(self, ox: Number, oy: Number, degrees: Number) -> SvgPath:
         """
         Return a rotated copy of this path. See :meth:`rotate` for details.
 

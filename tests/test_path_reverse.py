@@ -50,7 +50,7 @@ def test_reverse_complex_path() -> None:
     # Original must not be mutated
     assert str(ante_svg) == ante
     # There are slight rounding imprecisions
-    assert post_svg.as_string(decimals=14) == post
+    assert str(post_svg) == post
 
 
 def test_reverse_handles_shorthands() -> None:
