@@ -11,6 +11,8 @@ It is a port of [`svg-path-editor-lib`](https://www.npmjs.com/package/svg-path-e
 
 The **full documentation** is available on [Read the Docs](https://svg-path-editor.readthedocs.io), and the `pytest`-based **test suite** with a **100% test coverage** is defined in the [`tests` directory](https://github.com/KurtBoehm/polyqr/blob/main/tests).
 
+[![Tests](https://github.com/KurtBoehm/svg-path-editor/actions/workflows/test.yml/badge.svg)](https://github.com/KurtBoehm/svg-path-editor/actions/workflows/test.yml)
+
 ## 📦 Installation
 
 This package is available on PyPI and can be installed with `pip`:
