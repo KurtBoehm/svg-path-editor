@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "svg_path_editor"
 description = "An SVG path editor"
-version = "2.0.0"
+version = "3.0.0"
 readme = "ReadMe.md"
 requires-python = ">=3.12"
 license = "MPL-2.0"
