@@ -4,7 +4,12 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-from svg_path_editor import SvgPath, reverse_path
+from decimal import Decimal
+from typing import final
+
+import pytest
+
+from svg_path_editor import SvgItem, SvgPath, reverse_path
 
 
 def test_reverse_with_close_path() -> None:
@@ -18,6 +23,29 @@ def test_reverse_with_close_path() -> None:
     # Original must not be mutated
     assert str(ante_svg) == ante
     assert str(post_svg) == post
+
+
+def test_reverse_smooth_bezier():
+    """Reverse a path containing smooth Bézier curves."""
+    ante = "M 10 10 C 20 20 30 20 40 10 S 60 0 70 10 T 60 22.5 T 30 35 Z"
+    post = "M 30 35 Q 50 35 60 22.5 T 70 10 C 60 0 50 0 40 10 S 20 20 10 10 Z"
+
+    ante_svg = SvgPath(ante)
+    post_svg = reverse_path(ante_svg)
+
+    # Original must not be mutated
+    assert str(ante_svg) == ante
+    assert str(post_svg) == post
+
+    # Check the control points
+    assert [(p.x, p.y) for p in post_svg.control_locations] == [
+        (Decimal(50), Decimal(35)),
+        (Decimal(70), Decimal(10)),
+        (Decimal(60), Decimal(0)),
+        (Decimal(50), Decimal(0)),
+        (Decimal(30), Decimal(20)),
+        (Decimal(20), Decimal(20)),
+    ]
 
 
 def test_reverse_complex_path() -> None:
@@ -110,3 +138,16 @@ def test_reverse_preserves_relative_move_to() -> None:
     # Original must not be mutated
     assert str(ante_svg) == ante
     assert str(post_svg) == post
+
+
+def test_invalid_item() -> None:
+    """Invalid :class:`SvgItem` instances lead to a :class:`ValueError`."""
+
+    @final
+    class InvalidItem(SvgItem):
+        key = "?"
+
+    svg = SvgPath("")
+    svg.path = [InvalidItem([0, 0], relative=False), InvalidItem([0, 0], relative=True)]
+    with pytest.raises(ValueError):
+        reverse_path(svg)

@@ -9,6 +9,12 @@ import pytest
 from svg_path_editor.path_parser import PathParser
 
 
+def test_components_invalid_cursor() -> None:
+    """Calling `components` with an invalid cursor raises :class:`ValueError`."""
+    with pytest.raises(ValueError):
+        PathParser.components("M", "", 1)
+
+
 def test_move_to() -> None:
     """``m`` command parsing and validation."""
     with pytest.raises(ValueError):
@@ -24,6 +30,14 @@ def test_exponents() -> None:
 def test_no_whitespace_between_negative_sign() -> None:
     """Allow negative sign to follow a number without whitespace."""
     assert PathParser.parse("M46-86") == [["M", "46", "-86"]]
+
+
+def test_invalid_number() -> None:
+    """
+    Parsing an invalid number, e.g. a hexadecimal number, raises :class:`ValueError`.
+    """
+    with pytest.raises(ValueError):
+        PathParser.parse("m0 0x4")
 
 
 def test_overloaded_move_to() -> None:

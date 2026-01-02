@@ -65,6 +65,16 @@ def _rat_to_dec(x: "sp.Expr") -> Decimal:
     return Decimal(str(x.evalf(n=getcontext().prec)))
 
 
+def _dec_to_str(x: Decimal) -> str:
+    """
+    Convert a ``Decimal`` to a normalized string in fixed-point notation.
+
+    The value is normalized and formatted using fixed-point notation,
+    removing any exponent part while preserving the exact decimal value.
+    """
+    return f"{x.normalize():f}"
+
+
 def _format_number(v: Decimal, d: int | None, minify: bool = False) -> str:
     """
     Format a ``Decimal`` with optional fixed decimals and SVG number minification.
@@ -74,6 +84,7 @@ def _format_number(v: Decimal, d: int | None, minify: bool = False) -> str:
     :param minify: Apply SVG-oriented minification (strip trailing zeros,
         leading zero before decimal, etc.).
     """
+    v = v.normalize()
     s = f"{v:.{d}f}" if d is not None else f"{v:f}"
     s = _number_strip_trailing_zeros.sub(r"\1", s)
     s = _number_strip_dot.sub("", s)
@@ -108,10 +119,9 @@ def _parse_format_spec(spec: str) -> tuple[int | None, bool]:
             spec = spec.replace("m", "")
         spec = spec.strip()
         if spec.startswith("."):
-            try:
-                decimals = int(spec[1:])
-            except ValueError:
-                pass
+            decimals = int(spec[1:])
+        elif len(spec) > 0:
+            raise ValueError(f"Unsupported format spec: {spec}")
 
     return decimals, minify
 
@@ -225,7 +235,7 @@ class SvgItem(ABC):
         :raises ValueError: If ``new_type`` is not supported.
         """
         target = origin.target_location()
-        x, y = str(target.x), str(target.y)
+        x, y = _dec_to_str(target.x), _dec_to_str(target.y)
         absolute_type = new_type.upper()
 
         match absolute_type:
@@ -523,10 +533,10 @@ class SvgItem(ABC):
         return " ".join(
             [
                 "M",
-                str(self.previous_point.x),
-                str(self.previous_point.y),
+                _dec_to_str(self.previous_point.x),
+                _dec_to_str(self.previous_point.y),
                 self.get_type(),
-                *[str(v) for v in self.values],
+                *[_dec_to_str(v) for v in self.values],
             ]
         )
 
@@ -570,6 +580,11 @@ class SvgItem(ABC):
         """
         decimals, minify = _parse_format_spec(format_spec)
         return self.as_string(decimals=decimals, minify=minify)
+
+    @override
+    def __str__(self) -> str:
+        """Return :meth:`as_string` with default options."""
+        return self.as_string()
 
 
 @final
@@ -678,15 +693,15 @@ class SmoothCurveTo(SvgItem):
         return " ".join(
             [
                 "M",
-                str(self.previous_point.x),
-                str(self.previous_point.y),
+                _dec_to_str(self.previous_point.x),
+                _dec_to_str(self.previous_point.y),
                 "C",
-                str(ctrl0.x),
-                str(ctrl0.y),
-                str(ctrl1.x),
-                str(ctrl1.y),
-                str(target.x),
-                str(target.y),
+                _dec_to_str(ctrl0.x),
+                _dec_to_str(ctrl0.y),
+                _dec_to_str(ctrl1.x),
+                _dec_to_str(ctrl1.y),
+                _dec_to_str(target.x),
+                _dec_to_str(target.y),
             ]
         )
 
@@ -797,13 +812,13 @@ class SmoothQuadraticBezierCurveTo(SvgItem):
         return " ".join(
             [
                 "M",
-                str(self.previous_point.x),
-                str(self.previous_point.y),
+                _dec_to_str(self.previous_point.x),
+                _dec_to_str(self.previous_point.y),
                 "Q",
-                str(ctrl.x),
-                str(ctrl.y),
-                str(target.x),
-                str(target.y),
+                _dec_to_str(ctrl.x),
+                _dec_to_str(ctrl.y),
+                _dec_to_str(target.x),
+                _dec_to_str(target.y),
             ]
         )
 
@@ -1176,7 +1191,7 @@ class SvgPath:
         :param degrees: Rotation angle in degrees.
         """
         degrees = Decimal(degrees) % 360
-        if degrees == 0:
+        if degrees == Decimal(0):
             return
 
         for idx, it in enumerate(self.path):

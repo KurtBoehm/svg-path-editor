@@ -100,16 +100,15 @@ class PathParser:
         tokens: list[list[str]] = []
         while cursor < len(path):
             match = _cmd_type_re.match(path[cursor:])
-            if match is not None:
-                command = match.group(1)
-                if cursor == 0 and command.lower() != "m":
-                    raise ValueError(f"malformed path (first error at {cursor})")
-                cursor += len(match.group(0))
-                new_cursor, component_list = PathParser.components(
-                    command, path, cursor
-                )
-                cursor = new_cursor
-                tokens.extend(component_list)
-            else:
+            if match is None:
                 raise ValueError(f"malformed path (first error at {cursor})")
+
+            command = match.group(1)
+            if cursor == 0 and command.lower() != "m":
+                raise ValueError(f"malformed path (first error at {cursor})")
+
+            cursor += len(match.group(0))
+            new_cursor, component_list = PathParser.components(command, path, cursor)
+            cursor = new_cursor
+            tokens.extend(component_list)
         return tokens

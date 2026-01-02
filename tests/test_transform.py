@@ -24,12 +24,20 @@ def test_translation():
         "C 20.1 90.2 20.1 60.2 40.1 40.2 Z M 60.1 70.2 a 10 15 30 1 1 20 0 "
         "a 10 15 30 1 1 -20 0 z M 80.1 120.2 h 20 v 20 h -20 v -20 z"
     )
+    post_min = (
+        "M10.1 10.2 110.1 10.2A20 20 0 01130.1 30.2L130.1 130.2"
+        "C130.1 150.2 110.1 170.2 90.1 170.2L30.1 170.2Q10.1 170.2 10.1 150.2Z"
+        "M40.1 40.2C60.1 20.2 90.1 20.2 110.1 40.2 130.1 60.2 130.1 90.2 110.1 110.2 "
+        "90.1 130.2 60.1 130.2 40.1 110.2 20.1 90.2 20.1 60.2 40.1 40.2ZM60.1 70.2"
+        "a10 15 30 1120 0 10 15 30 11-20 0zM80.1 120.2h20v20h-20v-20z"
+    )
 
     ante_svg = SvgPath(ante)
     post_svg = ante_svg.translated("0.1", "0.2")
 
     assert str(ante_svg) == ante
     assert str(post_svg) == post
+    assert f"{post_svg:m}" == post_min
 
 
 def test_rotation():
@@ -57,11 +65,13 @@ def test_rotation():
     )
 
     ante_svg = SvgPath(ante)
+    post0_svg = ante_svg.rotated(0, 0, 0)
     post90_svg = ante_svg.rotated(0, 0, 90)
     post180_svg = ante_svg.rotated(0, 0, 180)
     post270_svg = ante_svg.rotated(0, 0, 270)
 
     assert str(ante_svg) == ante
+    assert str(post0_svg) == ante
     assert str(post90_svg) == post90
     assert str(post180_svg) == post180
     assert str(post270_svg) == post270

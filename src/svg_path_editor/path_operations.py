@@ -100,8 +100,8 @@ def reverse_path(svg: SvgPath, subpath_of_item: int | None = None) -> SvgPath:
                 sweep = str(1 - component.values[4])
                 output_path.append(SvgItem.make(["A", *vals, sweep, *pt]))
             case _:
-                # Unsupported/unknown types are ignored silently.
-                pass
+                # Unsupported/unknown types result in an error being thrown.
+                raise ValueError(f"Invalid command type: {component_type}")
 
         previous_type = component_type
 
@@ -180,7 +180,6 @@ def optimize_path(
         Remove redundant ``M``/``Z`` commands and degenerate ``L``/``H``/``V`` segments.
     :param remove_orphan_dots:
         Remove empty closed subpaths (``M`` immediately followed by ``Z``).
-        This can affect stroked paths.
     :param use_shorthands:
         Convert eligible ``C``/``Q`` segments to ``S``/``T`` where possible.
     :param use_horizontal_and_vertical_lines:

@@ -25,7 +25,7 @@ dependencies = ["sympy"]
 Repository = "https://github.com/KurtBoehm/svg_path_editor"
 
 [project.optional-dependencies]
-dev = ["furo", "pytest", "sphinx", "sphinx-autoapi"]
+dev = ["furo", "pytest", "pytest-cov", "pytest-xdist", "sphinx", "sphinx-autoapi"]
 
 [tool.pytest]
 testpaths = ["tests"]

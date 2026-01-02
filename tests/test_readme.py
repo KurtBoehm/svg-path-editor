@@ -71,14 +71,16 @@ def test_absolute_relative() -> None:
     absolute = "M -15 14 S -10 21.5 0 21.5 S 15 14 15 14 Z"
     relative = "m -15 14 s 5 7.5 15 7.5 s 15 -7.5 15 -7.5 z"
 
-    # Setting relative=False mutates the clone in place
+    # Setting relative=False mutates the path in place
     path.relative = False
     assert str(path) == absolute
+    assert not path.relative
 
     # `with_relative` is out-of-place; internally it sets `relative` on a clone
     relative_svg = path.with_relative(True)
     assert str(path) == absolute
     assert str(relative_svg) == relative
+    assert relative_svg.relative
 
 
 def test_reverse() -> None:

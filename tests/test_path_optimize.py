@@ -197,6 +197,22 @@ def test_optimize_path_uses_close_path() -> None:
     assert str(post_svg) == post
 
 
+def test_optimize_path_removes_orphan_dots() -> None:
+    """Remove paths consisting of ``M``/``m`` followed directly by ``Z``/``z``."""
+    ante = "M 0 0 Z"
+    post = ""
+
+    ante_svg = SvgPath(ante)
+    post_svg = optimize_path(
+        ante_svg,
+        remove_orphan_dots=True,
+    )
+
+    # Original must not be mutated
+    assert str(ante_svg) == ante
+    assert str(post_svg) == post
+
+
 def test_optimize_path_all_options_together() -> None:
     """Check all optimization flags together."""
     post = (
