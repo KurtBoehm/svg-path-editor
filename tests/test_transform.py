@@ -73,4 +73,4 @@ def test_scale():
     post_svg = ante_svg.scaled("0.1", "0.2")
 
     assert str(ante_svg) == ante
-    assert post_svg.as_string(decimals=4) == post
+    assert f"{post_svg:.4}" == post
