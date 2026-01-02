@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "svg_path_editor"
 description = "An SVG path editor"
-version = "3.0.0"
+dynamic = ["version"]
 readme = "ReadMe.md"
 requires-python = ">=3.12"
 license = "MPL-2.0"
@@ -21,11 +21,21 @@ classifiers = [
 ]
 dependencies = ["sympy"]
 
+[tool.setuptools.dynamic]
+version = { attr = "svg_path_editor.__version__" }
+
 [project.urls]
 Repository = "https://github.com/KurtBoehm/svg_path_editor"
 
 [project.optional-dependencies]
-dev = ["furo", "pytest", "pytest-cov", "pytest-xdist", "sphinx", "sphinx-autoapi"]
+dev = [
+  "furo",
+  "pytest",
+  "pytest-cov",
+  "pytest-xdist",
+  "sphinx",
+  "sphinx-autoapi",
+]
 
 [tool.pytest]
 testpaths = ["tests"]
