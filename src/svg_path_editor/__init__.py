@@ -6,11 +6,12 @@
 
 from .path_change_origin import change_path_origin
 from .path_operations import optimize_path, reverse_path
-from .svg import SvgItem, SvgPath
+from .svg import Point, SvgItem, SvgPath
 
 __version__ = "2.0.0"
 
 __all__ = [
+    "Point",
     "SvgPath",
     "SvgItem",
     "optimize_path",

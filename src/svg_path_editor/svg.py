@@ -6,10 +6,11 @@
 
 from __future__ import annotations
 
+from abc import ABC
 import re
 from collections.abc import Iterable
 from decimal import Decimal, getcontext
-from typing import TYPE_CHECKING, Final, TypedDict, final, override
+from typing import TYPE_CHECKING, Final, Self, TypedDict, final, override
 
 from .path_parser import PathParser
 
@@ -41,7 +42,6 @@ _number_strip_trailing_zeros: Final = re.compile(r"^(-?[0-9]*\.([0-9]*[1-9])?)0*
 _number_strip_dot: Final = re.compile(r"\.$")
 _number_leading_zero: Final = re.compile(r"^(-?)0\.")
 _minify_cmd_space: Final = re.compile(r"^([a-zA-Z]) ")
-_minify_negative: Final = re.compile(r" -")
 _minify_dot_gap: Final = re.compile(r"(\.[0-9]+) (?=\.)")
 
 
@@ -65,7 +65,7 @@ def _rat_to_dec(x: "sp.Expr") -> Decimal:
     return Decimal(str(x.evalf(n=getcontext().prec)))
 
 
-def format_number(v: Decimal, d: int | None, minify: bool = False) -> str:
+def _format_number(v: Decimal, d: int | None, minify: bool = False) -> str:
     """
     Format a ``Decimal`` with optional fixed decimals and SVG number minification.
 
@@ -82,10 +82,48 @@ def format_number(v: Decimal, d: int | None, minify: bool = False) -> str:
     return s
 
 
+def _parse_format_spec(spec: str) -> tuple[int | None, bool]:
+    """
+    Parse a format specification for path/string formatting.
+
+    The accepted pattern is a combination of:
+
+    * an optional ``.N`` for decimal places
+    * an optional ``m`` flag to enable minification
+
+    Order and whitespace are ignored, e.g. ``"m.3"``, ``".3m"`` and
+    ``"  .3   m  "`` all mean the same.
+
+    :param spec: Raw format spec passed to :meth:`__format__`.
+    :return: ``(decimals, minify)`` where ``decimals`` is ``None`` if not set.
+    """
+    decimals: int | None = None
+    minify = False
+
+    spec = spec.strip()
+    if spec:
+        # allow "m", ".3", ".3m", "m.3", "  m  .2  " etc.
+        if "m" in spec:
+            minify = True
+            spec = spec.replace("m", "")
+        spec = spec.strip()
+        if spec.startswith("."):
+            try:
+                decimals = int(spec[1:])
+            except ValueError:
+                pass
+
+    return decimals, minify
+
+
 class Point:
     """Simple 2D point."""
 
     def __init__(self, x: Number, y: Number) -> None:
+        """
+        :param x: x coordinate.
+        :param y: y coordinate.
+        """
         self.x: Decimal = Decimal(x)
         self.y: Decimal = Decimal(y)
 
@@ -124,7 +162,7 @@ class SvgControlPoint(SvgPoint):
         self.relations: list[Point] = relations
 
 
-class SvgItem:
+class SvgItem(ABC):
     """Base class for a single SVG path command and its numeric values."""
 
     def __init__[T: Number](self, values: list[T], relative: bool) -> None:
@@ -141,11 +179,11 @@ class SvgItem:
     @staticmethod
     def make(raw_item: list[str]) -> SvgItem:
         """
-        Construct an :class:`SvgItem` from a parsed command and its parameter strings.
+        Construct the appropriate subclass of :class:`SvgItem` from a parsed command
+        and its parameter strings.
 
         :param raw_item: List starting with the command letter followed by numeric
             parameters as strings (e.g. ``["M", "0", "0"]``).
-        :return: A concrete :class:`SvgItem` subclass instance.
         :raises ValueError: If the item is empty or the command is invalid.
         """
         if not raw_item:
@@ -322,17 +360,15 @@ class SvgItem:
         for ctrl in self.absolute_control_points:
             ctrl.item_reference = self
 
-    def clone(self) -> SvgItem:
+    def clone(self) -> Self:
         """
-        Return a shallow geometric clone of this item.
+        Return a shallow clone of this item, retaining its subclass.
 
         Values, relativity and :attr:`previous_point` are copied. Absolute points
         and control points need to be recomputed via :meth:`refresh`,
         as is done in :meth:`SvgPath.clone`.
-
-        :return: Cloned :class:`SvgItem` instance of the same subclass.
         """
-        clone: SvgItem = self.__class__(self.values.copy(), self._relative)
+        clone = self.__class__(self.values.copy(), self._relative)
         clone.previous_point = Point(self.previous_point.x, self.previous_point.y)
         return clone
 
@@ -354,7 +390,7 @@ class SvgItem:
 
     def translated(self, x: Number, y: Number, force: bool = False) -> SvgItem:
         """
-        Return a translated copy. See :method:`translate` for details.
+        Return a translated copy. See :meth:`translate` for details.
 
         :param x: Translation in x direction.
         :param y: Translation in y direction.
@@ -366,7 +402,7 @@ class SvgItem:
 
     def scale(self, kx: Number, ky: Number) -> None:
         """
-        Translate in place.
+        Scale in place.
 
         :param kx: Scale factor for x coordinates.
         :param ky: Scale factor for y coordinates.
@@ -512,8 +548,28 @@ class SvgItem:
             in the same command group.
         """
         flattened = self.values + [v for it in trailing_items for v in it.values]
-        str_values = [format_number(it, decimals, minify) for it in flattened]
+        str_values = [_format_number(it, decimals, minify) for it in flattened]
         return " ".join([self.get_type(), *str_values])
+
+    @override
+    def __format__(self, format_spec: str) -> str:
+        """
+        Format this item using :meth:`as_string`.
+
+        The ``format_spec`` can be used to control decimal places and
+        minification:
+
+        * ``""`` (empty): use :meth:`as_string` defaults
+        * ``".3"``: ``decimals=3``
+        * ``"m"``: ``minify=True``
+        * ``".3m"`` or ``"m.3"``: ``decimals=3``, ``minify=True``
+
+        Any other characters are currently ignored.
+
+        :param format_spec: Format specification string (e.g. ``".3m"``).
+        """
+        decimals, minify = _parse_format_spec(format_spec)
+        return self.as_string(decimals=decimals, minify=minify)
 
 
 @final
@@ -616,7 +672,7 @@ class SmoothCurveTo(SvgItem):
 
     @override
     def as_standalone_string(self) -> str:
-        """A standalone SVG path fragment using ``M`` and an explicit ``C``."""
+        """Standalone SVG path fragment using ``M`` and an explicit ``C``."""
         ctrl0, ctrl1 = self.absolute_control_points
         target = self.absolute_points[1]
         return " ".join(
@@ -735,7 +791,7 @@ class SmoothQuadraticBezierCurveTo(SvgItem):
 
     @override
     def as_standalone_string(self) -> str:
-        """A standalone SVG path fragment using ``M`` and an explicit ``Q``."""
+        """Standalone SVG path fragment using ``M`` and an explicit ``Q``."""
         ctrl = self.absolute_control_points[0]
         target = self.absolute_points[0]
         return " ".join(
@@ -945,7 +1001,7 @@ class EllipticalArcTo(SvgItem):
     @override
     def scale(self, kx: Number, ky: Number) -> None:
         """
-        Scale in place
+        Scale in place.
 
         Radii, rotation angle, target and sweep flag are updated to reflect the
         scaling factors.
@@ -1027,7 +1083,7 @@ class EllipticalArcTo(SvgItem):
 
         vals_groups = [self.values, *[it.values for it in trailing_items]]
         formatted_groups = [
-            [format_number(v, decimals, minify) for v in vals] for vals in vals_groups
+            [_format_number(v, decimals, minify) for v in vals] for vals in vals_groups
         ]
         compact = [
             f"{v[0]} {v[1]} {v[2]} {v[3]}{v[4]}{v[5]} {v[6]}" for v in formatted_groups
@@ -1036,6 +1092,8 @@ class EllipticalArcTo(SvgItem):
 
 
 class _Grouped(TypedDict):
+    """Internal helper structure for grouping path items by command type."""
+
     type: str
     item: SvgItem
     trailing: list[SvgItem]
@@ -1209,10 +1267,10 @@ class SvgPath:
         """
         Insert ``item`` before ``index``.
 
-        :param item: Index before which to insert.
+        :param index: Index before which to insert.
         :param item: Item to insert.
         """
-        self.path.insert(index + 1, item)
+        self.path.insert(index, item)
         self.refresh_absolute_positions()
 
     def change_type(self, index: int, new_type: str) -> SvgItem | None:
@@ -1303,6 +1361,26 @@ class SvgPath:
             if isinstance(item, (MoveTo, ClosePath)):
                 origin = item.target_location()
             previous = item
+
+    @override
+    def __format__(self, format_spec: str) -> str:
+        """
+        Format this path using :meth:`as_string`.
+
+        The ``format_spec`` can be used to control decimal places and
+        minification, following the same rules as :meth:`SvgItem.__format__`:
+
+        * ``""`` (empty): use :meth:`as_string` defaults
+        * ``".3"``: ``decimals=3``
+        * ``"m"``: ``minify=True``
+        * ``".3m"`` or ``"m.3"``: ``decimals=3``, ``minify=True``
+
+        Any other characters are currently ignored.
+
+        :param format_spec: Format specification string (e.g. ``".3m"``).
+        """
+        decimals, minify = _parse_format_spec(format_spec)
+        return self.as_string(decimals=decimals, minify=minify)
 
     @override
     def __str__(self) -> str:
