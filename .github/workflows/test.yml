@@ -1,4 +1,4 @@
-name: Tests
+name: Tests with 100% coverage
 on:
   - push
   - pull_request
