@@ -1,4 +1,4 @@
 furo
 sphinx
 sphinx-autoapi
-svg_path_editor
+git+https://github.com/KurtBoehm/svg-path-editor.git
