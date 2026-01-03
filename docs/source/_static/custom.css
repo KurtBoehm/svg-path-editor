@@ -52,6 +52,8 @@ dl[class]:not(.option-list, .field-list, .footnote, .glossary, .simple)
   white-space: wrap;
 }
 
-.bd-sidebar-primary {
-  width: 18rem;
+@media (min-width: 960px) {
+  .bd-sidebar-primary {
+    width: 18rem;
+  }
 }
