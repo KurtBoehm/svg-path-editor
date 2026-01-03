@@ -28,7 +28,13 @@ version = { attr = "svg_path_editor.__version__" }
 Repository = "https://github.com/KurtBoehm/svg_path_editor"
 
 [project.optional-dependencies]
-dev = ["furo", "pytest", "pytest-cov", "sphinx", "sphinx-autoapi"]
+dev = [
+  "pydata-sphinx-theme",
+  "pytest",
+  "pytest-cov",
+  "sphinx",
+  "sphinx-autoapi",
+]
 
 [tool.pytest]
 testpaths = ["tests"]

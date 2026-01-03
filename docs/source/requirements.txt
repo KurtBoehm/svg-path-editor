@@ -1,4 +1,4 @@
-furo
+pydata-sphinx-theme
 sphinx
 sphinx-autoapi
 git+https://github.com/KurtBoehm/svg-path-editor.git

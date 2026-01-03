@@ -1,0 +1,53 @@
+/* Colors taken from https://www.radix-ui.com/colors. */
+html[data-theme="light"] {
+  --radix-orange-11: #cc4e00;
+  --radix-red-11: #ce2c31;
+  --radix-pink-11: #c2298a;
+  --radix-purple-11: #8145b5;
+  --radix-indigo-11: #3a5bc7;
+  --radix-green-11: #218358;
+}
+html[data-theme="dark"] {
+  --radix-orange-11: #ffa057;
+  --radix-red-11: #ff9592;
+  --radix-pink-11: #ff8dcc;
+  --radix-purple-11: #d19dff;
+  --radix-indigo-11: #9eb1ff;
+  --radix-green-11: #3dd68c;
+}
+
+/* Use a nicer color scheme based on https://www.radix-ui.com/colors. */
+html {
+  --pst-color-primary: var(--radix-pink-11) !important;
+  --pst-color-secondary: var(--radix-red-11) !important;
+  --pst-color-inline-code: var(--radix-purple-11) !important;
+  --pst-color-inline-code-links: var(--radix-pink-11) !important;
+  --pst-sidebar-secondary: 20rem;
+}
+
+/* Replace the hideous background of the field lists with coloring. */
+dl[class]:not(.option-list, .field-list, .footnote, .glossary, .simple)
+  dt.field-even,
+dl[class]:not(.option-list, .field-list, .footnote, .glossary, .simple)
+  dt.field-odd {
+  color: var(--radix-indigo-11);
+  background-color: unset;
+}
+/* Do not highlight the colon. */
+dl[class]:not(.option-list, .field-list, .footnote, .glossary, .simple)
+  dt.field-even
+  .colon,
+dl[class]:not(.option-list, .field-list, .footnote, .glossary, .simple)
+  dt.field-odd
+  .colon {
+  color: var(--pst-color-text-base);
+}
+
+/* Ensure that TOC entries in the secondary side-bar do not overflow. */
+.toc-entry {
+  max-width: 100%;
+}
+/* Allow TOC entries in the secondary side-bar to wrap. */
+.toc-entry a.nav-link > code > span.pre {
+  white-space: wrap;
+}
