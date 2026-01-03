@@ -18,6 +18,7 @@ html[data-theme="dark"] {
 
 /* Use a nicer color scheme based on https://www.radix-ui.com/colors. */
 html {
+  --pst-font-family-monospace: ui-monospace, monospace;
   --pst-color-primary: var(--radix-pink-11) !important;
   --pst-color-secondary: var(--radix-red-11) !important;
   --pst-color-inline-code: var(--radix-purple-11) !important;
