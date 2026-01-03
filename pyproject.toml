@@ -10,7 +10,7 @@ readme = "ReadMe.md"
 requires-python = ">=3.12"
 license = "MPL-2.0"
 license-files = ["License"]
-authors = [{ name = "Kurt Böhm", email = "kurbo96@gmail.de" }]
+authors = [{ name = "Kurt Böhm", email = "kurbo96@gmail.com" }]
 keywords = ["svg", "drawing", "vector"]
 classifiers = [
   "Intended Audience :: Developers",
@@ -28,14 +28,7 @@ version = { attr = "svg_path_editor.__version__" }
 Repository = "https://github.com/KurtBoehm/svg_path_editor"
 
 [project.optional-dependencies]
-dev = [
-  "furo",
-  "pytest",
-  "pytest-cov",
-  "pytest-xdist",
-  "sphinx",
-  "sphinx-autoapi",
-]
+dev = ["furo", "pytest", "pytest-cov", "sphinx", "sphinx-autoapi"]
 
 [tool.pytest]
 testpaths = ["tests"]

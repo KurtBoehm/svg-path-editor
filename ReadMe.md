@@ -9,7 +9,7 @@ It is a port of [`svg-path-editor-lib`](https://www.npmjs.com/package/svg-path-e
 - **`list`-like path modification API**: path-level manipulations (insert, remove, change type, …) are exposed as methods on `SvgPath`.
 - **Typed and documented**: extensive type hints and docstrings for good IDE support and static analysis.
 
-The **full documentation** is available on [Read the Docs](https://svg-path-editor.readthedocs.io), and the `pytest`-based **test suite** with a **100% test coverage** is defined in the [`tests` directory](https://github.com/KurtBoehm/polyqr/blob/main/tests).
+The **full documentation** is available on [Read the Docs](https://svg-path-editor.readthedocs.io), and the `pytest`-based **test suite** with **100% coverage** is defined in the [`tests` directory](https://github.com/KurtBoehm/svg-path-editor/blob/main/tests).
 
 [![Tests](https://github.com/KurtBoehm/svg-path-editor/actions/workflows/test.yml/badge.svg)](https://github.com/KurtBoehm/svg-path-editor/actions/workflows/test.yml)
 
@@ -102,7 +102,7 @@ relative = path.with_relative(True)
 print(relative)
 ```
 
-## 🧱 Path Modification
+## 🧩 Path Modification
 
 `SvgPath` exposes several methods that modify the structure of a path in place, including parts of the `list` API:
 
@@ -141,7 +141,7 @@ print(path)
 print(clone)
 ```
 
-## 🧱 Higher-Level Path Operations
+## 🛠️ Higher-Level Path Operations
 
 These functions operate on paths out-of-place:
 
@@ -232,7 +232,7 @@ print(f"{optimized:m}")
 
 ## 🧪 Testing
 
-The project includes `pytest`-based tests that cover the entire code base with a 100% code coverage.
+This project includes `pytest`-based tests that cover the entire code base with a 100% code coverage.
 
 The development dependencies can be installed via the `dev` optional group:
 
@@ -240,7 +240,7 @@ The development dependencies can be installed via the `dev` optional group:
 pip install .[dev]
 ```
 
-All tests (including coverage reporting) can then be run from the project root:
+All tests (including coverage reporting using `pytest-cov`) can then be run from the project root:
 
 ```sh
 pytest --cov
@@ -248,5 +248,5 @@ pytest --cov
 
 ## 📜 License
 
-This library is licensed under the terms of the Mozilla Public License 2.0, provided in [`License`](https://github.com/KurtBoehm/polyqr/blob/main/License).
-The original TypeScript library is licensed under the Apache License, Version 2.0, provided in [`LicenseYqnn`](https://github.com/KurtBoehm/polyqr/blob/main/LicenseYqnn).
+This library is licensed under the terms of the Mozilla Public License 2.0, provided in [`License`](https://github.com/KurtBoehm/svg-path-editor/blob/main/License).
+The original TypeScript library is licensed under the Apache License, Version 2.0, provided in [`LicenseYqnn`](https://github.com/KurtBoehm/svg-path-editor/blob/main/LicenseYqnn).
