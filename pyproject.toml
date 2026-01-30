@@ -25,7 +25,7 @@ dependencies = ["sympy"]
 version = { attr = "svg_path_editor.__version__" }
 
 [project.urls]
-Repository = "https://github.com/KurtBoehm/svg_path_editor"
+Repository = "https://github.com/KurtBoehm/svg-path-editor"
 
 [project.optional-dependencies]
 dev = [
