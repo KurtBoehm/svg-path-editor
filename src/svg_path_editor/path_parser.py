@@ -51,7 +51,7 @@ class PathParser:
         :param cmd_type: Single-letter SVG path command (e.g. ``"M"``, ``"l"``).
         :param path: Full SVG path string being parsed.
         :param cursor: Current index in ``path`` to start parsing from.
-        :returns: A tuple ``(new_cursor, components)`` where ``components`` is
+        :return: A tuple ``(new_cursor, components)`` where ``components`` is
                   a list of ``[command, arg1, arg2, ...]`` token lists.
         :raises ValueError: If the path is malformed at or after ``cursor``.
         """
@@ -93,7 +93,7 @@ class PathParser:
         is performed here.
 
         :param path: Raw SVG path data string (the value of a ``d`` attribute).
-        :returns: A list of command components as token lists.
+        :return: A list of command components as token lists.
         :raises ValueError: If the path is syntactically malformed.
         """
         cursor = 0

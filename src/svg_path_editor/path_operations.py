@@ -26,7 +26,7 @@ def reverse_path(svg: SvgPath, subpath_of_item: int | None = None) -> SvgPath:
         Index of an item within the sub-path to reverse, or ``None`` to
         reverse the entire path.
 
-    :returns:
+    :return:
         A new path with the selected segment reversed. Geometry is preserved,
         but command types and relative/absolute representation may change.
     """
@@ -132,7 +132,7 @@ def optimize_relative_absolute(svg: SvgPath) -> SvgPath:
 
     :param svg: Input path.
 
-    :returns:
+    :return:
         A new path with possibly changed relative/absolute commands.
         Geometry is preserved; only representation changes.
     """
@@ -193,7 +193,7 @@ def optimize_path(
         Convert final line segments that return to start into ``Z``.
         This can affect stroked paths.
 
-    :returns: A new, possibly shorter, but geometrically equivalent path.
+    :return: A new, possibly shorter, but geometrically equivalent path.
     """
     new_svg = svg.clone()
     path = new_svg.path
