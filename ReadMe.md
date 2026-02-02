@@ -1,15 +1,16 @@
 # 🎨 SVG Path Editor
 
-A small, high-precision library for editing, transforming, and optimizing SVG paths programmatically in Python.
+A high-precision Python library for editing, transforming, and optimizing SVG paths programmatically.
 
 It is a port of [`svg-path-editor-lib`](https://www.npmjs.com/package/svg-path-editor-lib) 1.0.3 to Python with significant improvements:
 
-- **Decimal-based geometry**: all coordinates are stored as `decimal.Decimal`, with high-precision SymPy-based computations where appropriate. This preserves the decimal values stored in an SVG path and avoids the binary round-off errors that occur with `float`.
-- **In-place and out-of-place operations**: most geometric operations are available in a mutating (`scale`, `rotate`, …) and a non-mutating (`scaled`, `rotated`, …) variant.
+- **Decimal-based geometry**: all coordinates are stored as `decimal.Decimal`, with high-precision SymPy-based computations where appropriate. This preserves the decimal values stored in an SVG path and avoids the binary round-off errors introduced by `float`.
+- **In-place and out-of-place operations**: most geometric operations are available in both mutating (`scale`, `rotate`, …) and non-mutating (`scaled`, `rotated`, …) variants.
 - **`list`-like path modification API**: path-level manipulations (insert, remove, change type, …) are exposed as methods on `SvgPath`.
 - **Typed and documented**: extensive type hints and docstrings for good IDE support and static analysis.
+- **Geometric offsetting**: robust offsets for simple closed paths, with exact line/ellipse geometry and symbolic intersection handling.
 
-The **full documentation** is available on [Read the Docs](https://svg-path-editor.readthedocs.io), and the `pytest`-based **test suite** with **100% coverage** is defined in the [`tests` directory](https://github.com/KurtBoehm/svg-path-editor/blob/main/tests).
+The **full documentation** is on [Read the Docs](https://svg-path-editor.readthedocs.io), and a `pytest`-based **test suite with 100% coverage** is available in the [`tests` directory](https://github.com/KurtBoehm/svg-path-editor/blob/main/tests).
 
 [![Tests](https://github.com/KurtBoehm/svg-path-editor/actions/workflows/test.yml/badge.svg)](https://github.com/KurtBoehm/svg-path-editor/actions/workflows/test.yml)
 
@@ -159,13 +160,45 @@ print(reverse_path(path))
 print(change_path_origin(path, new_origin_index=2))
 ```
 
+## 🔘 Offsetting Paths
+
+This library supports high-precision offsetting of a closed path consisting of straight lines and elliptical arcs inward or outward by a given distance:
+
+```python
+from svg_path_editor import SvgPath, offset_path
+
+# A complex path with various arcs
+path = SvgPath("M 5 0 A 5 5 0 0 0 0 5 A 5 10 0 0 0 5 15 a 5 5 0 0 1 5 -5 V 5 H 5 a 5 5 0 0 0 5 -5 Z")
+
+# Offset the path
+inset = offset_path(
+    path,
+    # Offset by 1 inwards (negative values offset outwards)
+    d=1,
+    # Use numeric computations with automatic precision
+    prec="auto",
+)
+
+# M 5 1 A 4 4 0 0 0 1 5 A 4 9 0 0 0 4.1249 13.782 A 6 6 0 0 1 9 9.0839 L 9 6 L 4 6 L 4 4 L 5 4 A 4 4 0 0 0 8.873 1 Z
+print(f"{inset:.4}")
+```
+
+The `prec` parameter controls how `offset_path` operates:
+
+- `prec=None`: fully symbolic intermediate computations using SymPy. Can be very slow, especially for arcs based on rotated ellipses.
+- `prec="auto"`: mostly numeric computations with the current `Decimal` precision plus a safety margin (8 digits by default). Fastest option, with results at full precision in all tests.
+- `prec="auto-intersections"`: offset segments are computed symbolically, but intersections are still computed mostly numerically.
+- `prec=Precision(baseline=…, additional=…)`: explicitly set the desired _baseline_ precision and the _additional_ safety margin.
+
+Further details are described in the documentation.
+
 ## 🧮 Decimal-Based Geometry
 
 Internally, all coordinates and numeric parameters are stored as `decimal.Decimal`:
 
-- Constructors and geometric methods accept `int`, `float`, `str`, or `Decimal`; values are converted to `Decimal` immediately.
-- Arithmetic (translation, scaling, rotation, etc.) is performed in terms of `Decimal` to retain the decimal representation in an SVG path and avoid introducing binary round-off errors.
-- The decimal precision can be controlled via Python’s `decimal` context.
+- Constructors and geometric methods accept `int`, `float`, `str`, or `Decimal`, and convert to `Decimal` immediately.
+- Arithmetic (translation, scaling, rotation, etc.) is performed in terms of `Decimal` to retain the decimal representation in an SVG path and avoid binary round-off errors.
+- The decimal precision is controlled via Python’s `decimal` context.
 
 ```python
 from decimal import localcontext
@@ -173,8 +206,8 @@ from svg_path_editor import SvgPath
 
 path = SvgPath("M0 0h10v10z")
 
-# Default precision: 28 places
-# Rotation computed with SymPy for high-precision trigonometric functions
+# Default precision: 28 digits
+# Rotation uses SymPy for high-precision trigonometric functions
 rotated = path.rotated(0, 0, -45)
 # M 0 0 l 7.071067811865475244008443621 -7.071067811865475244008443621 l 7.071067811865475244008443621 7.071067811865475244008443621 z
 print(rotated)
@@ -183,19 +216,19 @@ print(rotated)
 print(f"{rotated:.5}")
 
 # The precision can be controlled using `getcontext`/`localcontext`
-# Since `Decimal` is a floating-point format, the precision specifies the overall
-# number of digits, not just the number of decimal places!
+# Since `Decimal` is a floating-point format, the precision specifies the total
+# number of significant digits, not just the number of decimal places
 with localcontext() as ctx:
     ctx.prec = 6
     rotated = path.rotated(0, 0, -45)
-    # The same output as before, even without precision reduction
+    # Same output as before, even without explicit precision reduction
     # M 0 0 l 7.07107 -7.07107 l 7.07107 7.07107 z
     print(rotated)
 ```
 
 ## 🧹 Path Optimization
 
-`optimize_path` rewrites a path into an equivalent but more compact form and is also out-of-place:
+`optimize_path` rewrites a path into an equivalent but more compact form and operates out-of-place:
 
 ```python
 from svg_path_editor import SvgPath, optimize_path
@@ -232,7 +265,7 @@ print(f"{optimized:m}")
 
 ## 🧪 Testing
 
-This project includes `pytest`-based tests that cover the entire code base with a 100% code coverage.
+This project includes `pytest`-based tests that cover the entire code base with 100% code coverage.
 
 The development dependencies can be installed via the `dev` optional group:
 

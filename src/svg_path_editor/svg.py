@@ -6,16 +6,15 @@
 
 from __future__ import annotations
 
-from abc import ABC
 import re
+from abc import ABC
 from collections.abc import Iterable
-from decimal import Decimal, getcontext
-from typing import TYPE_CHECKING, Final, Self, TypedDict, final, override
+from decimal import Decimal
+from typing import Final, Self, TypedDict, final, override
 
+from .geometry import Line, ParametricEllipticalArc, Point, Vec2
+from .math import Number, Precision, as_bool, dec_to_rat, evalf, rat_to_dec
 from .path_parser import PathParser
-
-if TYPE_CHECKING:
-    import sympy as sp
 
 __all__ = [
     "Point",
@@ -36,33 +35,11 @@ __all__ = [
     "SvgPath",
 ]
 
-Number = Decimal | int | float | str
-
 _number_strip_trailing_zeros: Final = re.compile(r"^(-?[0-9]*\.([0-9]*[1-9])?)0*$")
 _number_strip_dot: Final = re.compile(r"\.$")
 _number_leading_zero: Final = re.compile(r"^(-?)0\.")
 _minify_cmd_space: Final = re.compile(r"^([a-zA-Z]) ")
 _minify_dot_gap: Final = re.compile(r"(\.[0-9]+) (?=\.)")
-
-
-def _dec_to_rat(x: Decimal) -> "sp.Expr":
-    """
-    Convert a ``Decimal`` to a SymPy ``Rational``
-    using the exact decimal representation.
-    """
-    import sympy as sp
-
-    return sp.Rational(str(x))
-
-
-def _rat_to_dec(x: "sp.Expr") -> Decimal:
-    """
-    Convert a SymPy expression to ``Decimal`` with current precision.
-
-    The result is evaluated to a decimal string using the current
-    ``Decimal`` context precision and then converted to ``Decimal``.
-    """
-    return Decimal(str(x.evalf(n=getcontext().prec)))
 
 
 def _dec_to_str(x: Decimal) -> str:
@@ -124,18 +101,6 @@ def _parse_format_spec(spec: str) -> tuple[int | None, bool]:
             raise ValueError(f"Unsupported format spec: {spec}")
 
     return decimals, minify
-
-
-class Point:
-    """Simple 2D point."""
-
-    def __init__(self, x: Number, y: Number) -> None:
-        """
-        :param x: x coordinate.
-        :param y: y coordinate.
-        """
-        self.x: Decimal = Decimal(x)
-        self.y: Decimal = Decimal(y)
 
 
 class SvgPoint(Point):
@@ -449,8 +414,8 @@ class SvgItem(ABC):
         import sympy as sp
 
         ox, oy, degrees = Decimal(ox), Decimal(oy), Decimal(degrees)
-        angle = sp.rad(_dec_to_rat(degrees))
-        cosv, sinv = _rat_to_dec(sp.cos(angle)), _rat_to_dec(sp.sin(angle))
+        angle = sp.rad(dec_to_rat(degrees))
+        cosv, sinv = rat_to_dec(sp.cos(angle)), rat_to_dec(sp.sin(angle))
 
         for i in range(0, len(self.values), 2):
             px, py = self.values[i], self.values[i + 1]
@@ -1003,8 +968,8 @@ class EllipticalArcTo(SvgItem):
         ox, oy, degrees = Decimal(ox), Decimal(oy), Decimal(degrees)
 
         self.values[2] = (self.values[2] + degrees) % 360
-        angle = sp.rad(_dec_to_rat(degrees))
-        cosv, sinv = _rat_to_dec(sp.cos(angle)), _rat_to_dec(sp.sin(angle))
+        angle = sp.rad(dec_to_rat(degrees))
+        cosv, sinv = rat_to_dec(sp.cos(angle)), rat_to_dec(sp.sin(angle))
         px, py = self.values[5], self.values[6]
         x, y = (0, 0) if self.relative and not force else (ox, oy)
         dx, dy = px - x, py - y
@@ -1028,9 +993,9 @@ class EllipticalArcTo(SvgItem):
 
         kx, ky = Decimal(kx), Decimal(ky)
 
-        a, b = _dec_to_rat(self.values[0]), _dec_to_rat(self.values[1])
-        degrees = _dec_to_rat(self.values[2])
-        rkx, rky = _dec_to_rat(kx), _dec_to_rat(ky)
+        a, b = dec_to_rat(self.values[0]), dec_to_rat(self.values[1])
+        degrees = dec_to_rat(self.values[2])
+        rkx, rky = dec_to_rat(kx), dec_to_rat(ky)
         angle = sp.rad(degrees)
         cosv, sinv = sp.cos(angle), sp.sin(angle)
 
@@ -1044,7 +1009,7 @@ class EllipticalArcTo(SvgItem):
         # New rotation
         if not cb.equals(0):
             # atan2-style expression in degrees, using SymPy
-            self.values[2] = _rat_to_dec(sp.deg(sp.atan2(cc - ca - val1, cb)))
+            self.values[2] = rat_to_dec(sp.deg(sp.atan2(cc - ca - val1, cb)))
         else:
             # Fall back to axis-aligned orientation
             self.values[2] = Decimal(0) if ca < cc else Decimal(90)
@@ -1053,8 +1018,8 @@ class EllipticalArcTo(SvgItem):
         if not det.equals(0):
             # Use SymPy throughout and convert back at the end
             f = 2 * det * cf
-            self.values[0] = _rat_to_dec(-sp.sqrt(f * ((ca + cc) + val1)) / det)
-            self.values[1] = _rat_to_dec(-sp.sqrt(f * ((ca + cc) - val1)) / det)
+            self.values[0] = rat_to_dec(-sp.sqrt(f * ((ca + cc) + val1)) / det)
+            self.values[1] = rat_to_dec(-sp.sqrt(f * ((ca + cc) - val1)) / det)
 
         # New target
         self.values[5] *= kx
@@ -1062,6 +1027,85 @@ class EllipticalArcTo(SvgItem):
 
         # New sweep flag
         self.values[4] = self.values[4] if kx * ky >= 0 else 1 - self.values[4]
+
+    def to_geometry(self, n: Precision | None = None) -> ParametricEllipticalArc | Line:
+        """
+        Return a parametric representation of this SVG elliptical arc.
+
+        The construction follows section B.2.4 of the SVG 2.0 specification
+        (see https://svgwg.org/svg2-draft/implnote.html#ArcImplementationNotes)
+        using SymPy for exact computations.
+
+        :param n: Optional precision passed to :func:`evalf` for numeric evaluation.
+        :return: Parametric representation as :class:`ParametricEllipticalArc`
+            or a straight :class:`Line` if the radii are zero.
+        """
+        import sympy as sp
+
+        x0, y0 = self.previous_point
+        rx, ry, phi, large_arc, sweep, _, _ = self.values
+        large_arc, sweep = bool(large_arc), bool(sweep)
+        [(x1, y1)] = self.absolute_points
+
+        if rx == 0 and ry == 0:
+            return Line(Point(x0, y0).vec2, Point(x1, y1).vec2)
+        rx, ry = abs(rx), abs(ry)
+
+        rx0, ry0 = dec_to_rat(x0), dec_to_rat(y0)
+        rx1, ry1 = dec_to_rat(x1), dec_to_rat(y1)
+        rrx, rry = dec_to_rat(rx), dec_to_rat(ry)
+        rphi = dec_to_rat(phi)
+        angle = sp.rad(rphi)
+        cosv, sinv = sp.cos(angle), sp.sin(angle)
+
+        # step 1
+        avgx, avgy = (rx0 - rx1) / 2, (ry0 - ry1) / 2
+        px, py = cosv * avgx + sinv * avgy, cosv * avgy - sinv * avgx
+
+        # B.2.5 step 3: Ensure radii are large enough
+        λ = px**2 / rrx**2 + py**2 / rry**2
+        if as_bool(λ > 1):
+            λ_sqrt = sp.sqrt(λ)
+            rrx, rry = λ_sqrt * rrx, λ_sqrt * rry
+
+        # step 2
+        rrx2, rry2, px2, py2 = rrx * rrx, rry * rry, px * px, py * py
+        cfn = rrx2 * rry2 - rrx2 * py2 - rry2 * px2
+        cfd = rrx2 * py2 + rry2 * px2
+        cf = sp.sqrt(cfn / cfd)
+        pcx, pcy = cf * rrx * py / rry, -cf * rry * px / rrx
+        if large_arc == sweep:
+            pcx, pcy = -pcx, -pcy
+
+        # step 3
+        cx = cosv * pcx - sinv * pcy + (rx0 + rx1) / 2
+        cy = sinv * pcx + cosv * pcy + (ry0 + ry1) / 2
+
+        # step 4
+        def vangle(ux: sp.Expr, uy: sp.Expr, vx: sp.Expr, vy: sp.Expr) -> sp.Expr:
+            num = ux * vx + uy * vy
+            den = sp.sqrt(ux * ux + uy * uy) * sp.sqrt(vx * vx + vy * vy)
+            ac = evalf(sp.deg(sp.acos(num / den)), n=n)
+            return ac if as_bool(ux * vy - uy * vx >= 0) else -ac
+
+        x, y = (px - pcx) / rrx, (py - pcy) / rry
+        theta0 = vangle(sp.Integer(1), sp.Integer(0), x, y)
+        dtheta = vangle(x, y, -(px + pcx) / rrx, -(py + pcy) / rry) % 360
+        if not sweep:
+            dtheta -= 360
+
+        return ParametricEllipticalArc(
+            c=Vec2(evalf(cx, n=n), evalf(cy, n=n)),
+            r=Vec2(evalf(rrx, n=n), evalf(rry, n=n)),
+            theta0=evalf(theta0, n=n),
+            dtheta=evalf(dtheta, n=n),
+            phi=evalf(rphi, n=n),
+        )
+
+    @property
+    def geometry(self) -> ParametricEllipticalArc | Line:
+        """Geometric representation of this arc using :meth:`to_geometry`."""
+        return self.to_geometry()
 
     @override
     def refresh_absolute_points(self, origin: Point, previous: SvgItem | None) -> None:
@@ -1117,12 +1161,16 @@ class _Grouped(TypedDict):
 class SvgPath:
     """An SVG path as a sequence of :class:`SvgItem`."""
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str | list[SvgItem]) -> None:
         """
-        :param path: SVG path data string (e.g. ``"M0 0L10 0Z"``).
+        :param path: SVG path data string (e.g. ``"M0 0L10 0Z"``) or a list
+            of :class:`SvgItem` instances.
         """
-        raw_path = PathParser.parse(path)
-        self.path: list[SvgItem] = [SvgItem.make(it) for it in raw_path]
+        if isinstance(path, str):
+            raw_path = PathParser.parse(path)
+            self.path: list[SvgItem] = [SvgItem.make(it) for it in raw_path]
+        else:
+            self.path = path
         self.refresh_absolute_positions()
 
     def clone(self) -> SvgPath:

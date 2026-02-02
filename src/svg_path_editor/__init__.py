@@ -4,17 +4,22 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+from .geometry import Point
+from .math import Precision
 from .path_change_origin import change_path_origin
+from .path_offset import offset_path
 from .path_operations import optimize_path, reverse_path
-from .svg import Point, SvgItem, SvgPath
+from .svg import SvgItem, SvgPath
 
 __version__ = "3.1.1"
 
 __all__ = [
     "Point",
+    "Precision",
     "SvgPath",
     "SvgItem",
+    "change_path_origin",
+    "offset_path",
     "optimize_path",
     "reverse_path",
-    "change_path_origin",
 ]
