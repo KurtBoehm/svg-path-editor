@@ -49,7 +49,7 @@ def reverse_path(svg: SvgPath, subpath_of_item: int | None = None) -> SvgPath:
     output_path: list[SvgItem] = []
     reversed_path = list(reversed(sub_path))[:-1]
 
-    start_point = reversed_path[0].target_location()
+    start_point = reversed_path[0].target_location
     output_path.append(SvgItem.make(["M", *_to_str(start_point)]))
     previous_type = ""
     is_closed = False
@@ -208,7 +208,7 @@ def optimize_path(
         c1type = c1.get_type(True)
 
         if c0type == "M":
-            initial_pt = c0.target_location()
+            initial_pt = c0.target_location
 
         if remove_useless_commands:
             if c0type == "M" and c1type == "M":
@@ -221,13 +221,13 @@ def optimize_path(
                 i -= 1
                 continue
             if c0type == "Z" and c1type == "M":
-                tg = c0.target_location()
+                tg = c0.target_location
                 if tg.x == c1.absolute_points[0].x and tg.y == c1.absolute_points[0].y:
                     del path[i]
                     i -= 1
                     continue
             if c1type in ("L", "V", "H"):
-                tg = c1.target_location()
+                tg = c1.target_location
                 if tg.x == c1.previous_point.x and tg.y == c1.previous_point.y:
                     del path[i]
                     i -= 1
@@ -241,7 +241,7 @@ def optimize_path(
 
         if use_horizontal_and_vertical_lines:
             if c1type == "L":
-                tg = c1.target_location()
+                tg = c1.target_location
                 if tg.x == c1.previous_point.x:
                     path[i] = SvgItem.make_from(c1, c0, "V")
                     i += 1
@@ -253,7 +253,7 @@ def optimize_path(
 
         if use_shorthands:
             if c0type in ("Q", "T") and c1type == "Q":
-                pt = _to_str(path[i].target_location())
+                pt = _to_str(path[i].target_location)
                 candidate = SvgItem.make(["T", *pt])
                 candidate.refresh(origin, c0)
                 ctrl = candidate.control_locations
@@ -264,7 +264,7 @@ def optimize_path(
                     path[i] = candidate
 
             if c0type in ("C", "S") and c1type == "C":
-                pt = _to_str(path[i].target_location())
+                pt = _to_str(path[i].target_location)
                 ctrl = _to_str(path[i].absolute_points[1])
                 candidate = SvgItem.make(["S", *ctrl, *pt])
                 candidate.refresh(origin, c0)
@@ -280,14 +280,14 @@ def optimize_path(
                     c1.previous_point.x == c1.absolute_points[0].x
                     and c1.previous_point.y == c1.absolute_points[0].y
                 ):
-                    pt = _to_str(c1.target_location())
+                    pt = _to_str(c1.target_location)
                     ctrl = _to_str(c1.absolute_points[1])
                     path[i] = SvgItem.make(["S", *ctrl, *pt])
                     path[i].refresh(origin, c0)
 
         if use_close_path:
             if c1type in ("L", "H", "V"):
-                target = c1.target_location()
+                target = c1.target_location
                 if initial_pt.x == target.x and initial_pt.y == target.y:
                     path[i] = SvgItem.make(["Z"])
                     path[i].refresh(initial_pt, c0)

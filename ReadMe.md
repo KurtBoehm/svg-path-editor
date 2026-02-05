@@ -190,7 +190,25 @@ The `prec` parameter controls how `offset_path` operates:
 - `prec="auto-intersections"`: offset segments are computed symbolically, but intersections are still computed mostly numerically.
 - `prec=Precision(baseline=…, additional=…)`: explicitly set the desired _baseline_ precision and the _additional_ safety margin.
 
-Further details are described in the documentation.
+Similarly, the library exposes `bevel_path`, which has the same parameters as `offset_path` (and uses very similar logic internally) and generates a sequence of small closed paths that fill the gap between the original path and its offset (the “bevel” region), which can be used for shading:
+
+```python
+from svg_path_editor import SvgPath, bevel_path
+
+# A path looking somewhat like an anvil
+path = SvgPath("M 0 0 h 2 a 1 1 0 0 1 -1 1 h 1 v 1 h -2 Z")
+
+# M 0 0 L 2 0 L 1.894427190999915878563669467 0.1 L 0.1 0.1 Z
+# M 2 0 a 1 1 0 0 1 -1 1 L 1 0.9 A 0.9 0.9 0 0 0 1.894427190999915878563669467 0.1 Z
+# M 1 1 L 0.9 0.9 L 1 0.9 Z
+# M 1 1 L 0.9 1.1 L 0.9 0.9 Z
+# M 1 1 L 2 1 L 1.9 1.1 L 0.9 1.1 Z
+# M 2 1 L 2 2 L 1.9 1.9 L 1.9 1.1 Z
+# M 2 2 L 0 2 L 0.1 1.9 L 1.9 1.9 Z
+# M 0 2 L 0 0 L 0.1 0.1 L 0.1 1.9 Z
+for p in bevel_path(path, d="0.1"):
+    print(p)
+```
 
 ## 🧮 Decimal-Based Geometry
 

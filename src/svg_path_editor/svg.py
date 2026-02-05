@@ -199,7 +199,7 @@ class SvgItem(ABC):
         :param new_type: New SVG command letter (e.g. ``"L"`` or ``"c"``).
         :raises ValueError: If ``new_type`` is not supported.
         """
-        target = origin.target_location()
+        target = origin.target_location
         x, y = _dec_to_str(target.x), _dec_to_str(target.y)
         absolute_type = new_type.upper()
 
@@ -228,7 +228,7 @@ class SvgItem(ABC):
                 raise ValueError(f"Unsupported SVG item type: {new_type!r}")
 
         result = SvgItem.make(parts)
-        result.previous_point = previous.target_location()
+        result.previous_point = previous.target_location
         result.absolute_points = [target]
         result.reset_control_points(previous)
 
@@ -263,7 +263,7 @@ class SvgItem(ABC):
         :param origin: Current subpath origin (last ``M``/``m`` or ``Z``).
         :param previous: Previous item in the path, or ``None`` for the first item.
         """
-        self.previous_point = previous.target_location() if previous else Point(0, 0)
+        self.previous_point = previous.target_location if previous else Point(0, 0)
         self.absolute_points = []
 
         current = self.previous_point if self.relative else Point(0, 0)
@@ -441,6 +441,7 @@ class SvgItem(ABC):
         item.rotate(ox, oy, degrees, force=force)
         return item
 
+    @property
     def target_location(self) -> SvgPoint:
         """Final absolute point reached by this item."""
         return self.absolute_points[-1]
@@ -451,7 +452,7 @@ class SvgItem(ABC):
 
         :param pt: New target location in absolute coordinates.
         """
-        loc = self.target_location()
+        loc = self.target_location
         dx, dy = pt.x - loc.x, pt.y - loc.y
         self.values[-2] += dx
         self.values[-1] += dy
@@ -568,11 +569,27 @@ class MoveTo(SvgItem):
     key = "M"
 
 
+def M(x: Number, y: Number) -> MoveTo:
+    return MoveTo([x, y], relative=False)
+
+
+def m(x: Number, y: Number) -> MoveTo:
+    return MoveTo([x, y], relative=True)
+
+
 @final
 class LineTo(SvgItem):
     """SVG ``L``/``l`` command (line to point)."""
 
     key = "L"
+
+
+def L(x: Number, y: Number) -> LineTo:
+    return LineTo([x, y], relative=False)
+
+
+def l(x: Number, y: Number) -> LineTo:
+    return LineTo([x, y], relative=True)
 
 
 @final
@@ -595,10 +612,8 @@ class CurveTo(SvgItem):
         if not previous_target:
             raise ValueError("Invalid path: CurveTo without previous item")
         self.absolute_control_points = [
-            SvgControlPoint(
-                self.absolute_points[0], [previous_target.target_location()]
-            ),
-            SvgControlPoint(self.absolute_points[1], [self.target_location()]),
+            SvgControlPoint(self.absolute_points[0], [previous_target.target_location]),
+            SvgControlPoint(self.absolute_points[1], [self.target_location]),
         ]
 
     @override
@@ -608,7 +623,7 @@ class CurveTo(SvgItem):
 
         :param previous_target: Previous item in the path.
         """
-        a, b = previous_target.target_location(), self.target_location()
+        a, b = previous_target.target_location, self.target_location
         d = a if self.relative else Point(0, 0)
         self.values[0] = 2 * a.x / 3 + b.x / 3 - d.x
         self.values[1] = 2 * a.y / 3 + b.y / 3 - d.y
@@ -635,19 +650,19 @@ class SmoothCurveTo(SvgItem):
         self.absolute_control_points = []
 
         if isinstance(previous_target, (CurveTo, SmoothCurveTo)):
-            prev_loc = previous_target.target_location()
+            prev_loc = previous_target.target_location
             prev_control = previous_target.absolute_control_points[1]
             pt = Point(2 * prev_loc.x - prev_control.x, 2 * prev_loc.y - prev_control.y)
             self.absolute_control_points.append(SvgControlPoint(pt, [prev_loc]))
         else:
             current = (
-                previous_target.target_location() if previous_target else Point(0, 0)
+                previous_target.target_location if previous_target else Point(0, 0)
             )
             pt = Point(current.x, current.y)
             self.absolute_control_points.append(SvgControlPoint(pt, []))
 
         self.absolute_control_points.append(
-            SvgControlPoint(self.absolute_points[0], [self.target_location()])
+            SvgControlPoint(self.absolute_points[0], [self.target_location])
         )
 
     @override
@@ -677,8 +692,7 @@ class SmoothCurveTo(SvgItem):
 
         :param previous_target: Previous item in the path.
         """
-        a = previous_target.target_location()
-        b = self.target_location()
+        a, b = previous_target.target_location, self.target_location
         d = a if self.relative else Point(0, 0)
         self.values[0] = a.x / 3 + 2 * b.x / 3 - d.x
         self.values[1] = a.y / 3 + 2 * b.y / 3 - d.y
@@ -719,7 +733,7 @@ class QuadraticBezierCurveTo(SvgItem):
             raise ValueError("Invalid path: QuadraticBezierCurveTo without previous")
         ctrl = SvgControlPoint(
             self.absolute_points[0],
-            [previous_target.target_location(), self.target_location()],
+            [previous_target.target_location, self.target_location],
         )
         self.absolute_control_points = [ctrl]
 
@@ -730,8 +744,7 @@ class QuadraticBezierCurveTo(SvgItem):
 
         :param previous_target: Previous item in the path.
         """
-        a = previous_target.target_location()
-        b = self.target_location()
+        a, b = previous_target.target_location, self.target_location
         d = a if self.relative else Point(0, 0)
         self.values[0] = (a.x + b.x) / 2 - d.x
         self.values[1] = (a.y + b.y) / 2 - d.y
@@ -757,16 +770,16 @@ class SmoothQuadraticBezierCurveTo(SvgItem):
             previous_target, (QuadraticBezierCurveTo, SmoothQuadraticBezierCurveTo)
         ):
             previous = (
-                previous_target.target_location() if previous_target else Point(0, 0)
+                previous_target.target_location if previous_target else Point(0, 0)
             )
             pt = Point(previous.x, previous.y)
             self.absolute_control_points = [SvgControlPoint(pt, [])]
             return
 
-        prev_loc = previous_target.target_location()
+        prev_loc = previous_target.target_location
         prev_control = previous_target.absolute_control_points[0]
         pt = Point(2 * prev_loc.x - prev_control.x, 2 * prev_loc.y - prev_control.y)
-        ctrl = SvgControlPoint(pt, [prev_loc, self.target_location()])
+        ctrl = SvgControlPoint(pt, [prev_loc, self.target_location])
         self.absolute_control_points = [ctrl]
 
     @override
@@ -802,8 +815,16 @@ class ClosePath(SvgItem):
         :param origin: Subpath origin point.
         :param previous: Previous item in the path, if any.
         """
-        self.previous_point = previous.target_location() if previous else Point(0, 0)
+        self.previous_point = previous.target_location if previous else Point(0, 0)
         self.absolute_points = [SvgPoint(origin.x, origin.y)]
+
+
+def Z() -> ClosePath:
+    return ClosePath([], relative=False)
+
+
+def z() -> ClosePath:
+    return ClosePath([], relative=True)
 
 
 @final
@@ -838,7 +859,7 @@ class HorizontalLineTo(SvgItem):
         :param origin: Current subpath origin.
         :param previous: Previous item in the path.
         """
-        self.previous_point = previous.target_location() if previous else Point(0, 0)
+        self.previous_point = previous.target_location if previous else Point(0, 0)
         x = self.values[0] + self.previous_point.x if self.relative else self.values[0]
         self.absolute_points = [SvgPoint(x, self.previous_point.y)]
 
@@ -849,7 +870,7 @@ class HorizontalLineTo(SvgItem):
 
         :param pt: New target location.
         """
-        loc = self.target_location()
+        loc = self.target_location
         dx = pt.x - loc.x
         self.values[0] += dx
 
@@ -912,7 +933,7 @@ class VerticalLineTo(SvgItem):
         :param origin: Current subpath origin.
         :param previous: Previous item in the path.
         """
-        self.previous_point = previous.target_location() if previous else Point(0, 0)
+        self.previous_point = previous.target_location if previous else Point(0, 0)
         y = self.values[0] + self.previous_point.y if self.relative else self.values[0]
         self.absolute_points = [SvgPoint(self.previous_point.x, y)]
 
@@ -923,8 +944,7 @@ class VerticalLineTo(SvgItem):
 
         :param pt: New target location.
         """
-        loc = self.target_location()
-        dy = pt.y - loc.y
+        dy = pt.y - self.target_location.y
         self.values[0] += dy
 
 
@@ -1115,7 +1135,7 @@ class EllipticalArcTo(SvgItem):
         :param origin: Current subpath origin.
         :param previous: Previous item in the path.
         """
-        self.previous_point = previous.target_location() if previous else Point(0, 0)
+        self.previous_point = previous.target_location if previous else Point(0, 0)
         if self.relative:
             x = self.values[5] + self.previous_point.x
             y = self.values[6] + self.previous_point.y
@@ -1382,7 +1402,7 @@ class SvgPath:
     @property
     def target_locations(self) -> list[SvgPoint]:
         """Final absolute points for each item in the path."""
-        return [it.target_location() for it in self.path]
+        return [it.target_location for it in self.path]
 
     @property
     def control_locations(self) -> list[SvgControlPoint]:
@@ -1422,7 +1442,7 @@ class SvgPath:
         for item in self.path:
             item.refresh(origin, previous)
             if isinstance(item, (MoveTo, ClosePath)):
-                origin = item.target_location()
+                origin = item.target_location
             previous = item
 
     @override

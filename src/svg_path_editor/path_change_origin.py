@@ -84,14 +84,14 @@ def change_path_origin(
     for i in range(segment_len):
         if i == 0:
             # Insert a new M at the origin of the previous item.
-            new_origin = new_last_item.target_location()
+            new_origin = new_last_item.target_location
             item = SvgItem.make(["M", str(new_origin.x), str(new_origin.y)])
             output_path.append(item)
 
         if new_origin_index + i == start + segment_len:
             # We may be able to remove the initial M if last item has the same target.
-            tg1 = first_item.target_location()
-            tg2 = last_item.target_location()
+            tg1 = first_item.target_location
+            tg2 = last_item.target_location
             if tg1.x == tg2.x and tg1.y == tg2.y:
                 following_m = next(
                     (
