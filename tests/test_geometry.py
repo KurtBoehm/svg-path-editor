@@ -50,6 +50,15 @@ def test_point_eq() -> None:
     assert not a == 1
 
 
+def test_point_normalize_zero() -> None:
+    assert Point(0, 0).normalized == Point(0, 0)
+
+
+def test_point_arithmetic() -> None:
+    assert -Point(1, 2) == Point(-1, -2)
+    assert Point(1, 2) + Point(-1, -2) == Point(0, 0)
+
+
 def test_point_str_repr() -> None:
     assert str(Point(1, 2)) == "(1, 2)"
     assert str(Point("1.2", "3.14")) == "(1.2, 3.14)"

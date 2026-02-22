@@ -584,7 +584,7 @@ def intersect_arc_arc(
     x, y = sp.Symbol("x", real=True), sp.Symbol("y", real=True)
 
     imp0, imp1 = arc0.implicit(x, y), arc1.implicit(x, y)
-    res = expand(resultant(imp0, imp1, y, n=n))
+    res = expand(resultant(imp0, imp1, x, y, n=n))
 
     # Resultant is constant: either coincident or disjoint.
     if not res.free_symbols:

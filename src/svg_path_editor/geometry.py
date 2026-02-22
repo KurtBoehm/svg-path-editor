@@ -102,6 +102,47 @@ class Point:
         """Debug representation ``Point(x, y)`` with decimal formatting."""
         return f"Point({self.x:f}, {self.y:f})"
 
+    @property
+    def length(self) -> Decimal:
+        """Euclidean norm :math:`‖v‖_2 = \\sqrt{x^2 + y^2}`."""
+        return (self.x * self.x + self.y * self.y).sqrt()
+
+    @property
+    def normalized(self) -> Point:
+        """
+        Unit vector :math:`v / ‖v‖_2`.
+
+        The zero vector is returned unchanged.
+        """
+        length = self.length
+        if length == 0:
+            return Point(0, 0)
+        return self / length
+
+    # ---- vector arithmetic -------------------------------------------------------
+
+    def __neg__(self) -> Point:
+        """Unary minus :math:`-v`."""
+        return Point(-self.x, -self.y)
+
+    def __add__(self, other: Point) -> Point:
+        """Vector addition :math:`v + w`."""
+        return Point(self.x + other.x, self.y + other.y)
+
+    def __sub__(self, other: Point) -> Point:
+        """Vector subtraction :math:`v - w`."""
+        return Point(self.x - other.x, self.y - other.y)
+
+    def __mul__(self, other: Number) -> Point:
+        r"""Scalar multiplication :math:`v ⋅ λ`."""
+        other = Decimal(other)
+        return Point(self.x * other, self.y * other)
+
+    def __truediv__(self, other: Number) -> Point:
+        """Scalar division :math:`v / λ`."""
+        other = Decimal(other)
+        return Point(self.x / other, self.y / other)
+
 
 @dataclass
 class Vec2:
@@ -414,6 +455,15 @@ class ParametricEllipticalArc:
         """
         return self.theta0 + self.dtheta
 
+    def locally_convex(self, *, is_ccw: bool) -> bool:
+        """
+        Test if the arc is locally convex with respect to the boundary orientation.
+
+        :return: ``True`` iff the interior lies on the convex side of the arc
+                 for a boundary with orientation ``is_ccw``.
+        """
+        return as_bool(self.dtheta < 0) == is_ccw
+
     def offset(
         self,
         *,
@@ -435,7 +485,7 @@ class ParametricEllipticalArc:
         :param is_ccw: Orientation of the surrounding boundary.
         :param n: Unused; kept for API symmetry with :meth:`Line.offset`.
         """
-        radial_delta = -d if as_bool(self.dtheta < 0) == is_ccw else d
+        radial_delta = -d if self.locally_convex(is_ccw=is_ccw) else d
         return ParametricEllipticalArc(
             c=self.c,
             r=Vec2(self.r.x + radial_delta, self.r.y + radial_delta),

@@ -537,36 +537,45 @@ def _sylvester_matrix(p: Poly, q: Poly) -> "sp.Matrix":
     return sp.Matrix(rows)
 
 
-def resultant(f: Expr, g: Expr, x: Symbol, n: Precision | None = None) -> Expr:
+def resultant(
+    f: Expr,
+    g: Expr,
+    x: Symbol,
+    y: Symbol,
+    n: Precision | None = None,
+) -> Expr:
     """
-    Resultant :math:`\\operatorname{res}_x(f, g)`.
+    Resultant :math:`\\operatorname{res}_y(f, g)`.
 
-    Eliminates variable :math:`x` from the system :math:`f(x, …) = 0`,
-    :math:`g(x, …) = 0`.
+    Eliminates variable :math:`y` from the system :math:`f(x, y) = 0`,
+    :math:`g(x, y) = 0`.
 
-    If both expressions are real univariate polynomials in ``x``,
-    the resultant is computed as the determinant of the Sylvester matrix.
-    Coefficients that are numerically zero (according to :func:`is_zero`)
-    are normalized to exact zero.
+    If both expressions are real polynomials in :math:`y`,
+    the resultant is computed as the determinant of the Sylvester matrix,
+    then numerically evaluated with :func:`evalf` using precision ``n``.
+    Coefficients that are numerically zero (according to :func:`is_zero`
+    with precision ``n``) are normalized to exact zero.
 
     Otherwise, :func:`sympy.resultant` is used.
     """
     import sympy as sp
 
-    fp, gp = _as_real_poly(f, x), _as_real_poly(g, x)
+    fp, gp = _as_real_poly(f, y), _as_real_poly(g, y)
     if fp and gp:
         res = _sylvester_matrix(fp, gp).det(method="laplace")
         assert isinstance(res, sp.Expr)
+        res = evalf(res, n=n)
+        assert isinstance(res, sp.Expr)
 
         new_coeffs: list[sp.Expr] = []
-        rpoly = sp.Poly(res)
+        rpoly = sp.Poly(res, x)
         for c in rpoly.all_coeffs():
             if is_zero(c, n=n):
                 new_coeffs.append(sp.S.Zero)
             else:
                 new_coeffs.append(c)
         return sp.Poly(new_coeffs, rpoly.gens).as_expr()
-    r = sp.resultant(f, g, x)
+    r = sp.resultant(f, g, y)
     assert isinstance(r, sp.Expr)
     return r
 

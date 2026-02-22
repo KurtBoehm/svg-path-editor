@@ -12,7 +12,7 @@ from .intersect import (
     LineAroundIntersection,
     intersect,
 )
-from .math import Number, Precision, dec_to_rat
+from .math import Number, Precision, dec_to_rat, rat_to_dec
 from .svg import ClosePath, EllipticalArcTo, L, M, MoveTo, SvgItem, SvgPath, Z
 
 type Shape = Line | ParametricEllipticalArc
@@ -29,6 +29,7 @@ def _all_non_none[T](elems: list[T | None]) -> TypeGuard[list[T]]:
 class _OffsetData(NamedTuple):
     """Precomputed data for offsetting a simple closed path."""
 
+    is_ccw: bool
     items: list[SvgItem]
     offsets: list[Shape]
     inters: list[Intersection]
@@ -81,7 +82,7 @@ def _prepare_offset_data(
     ]
     assert _all_non_none(inters), "Offset intersection computation failed."
 
-    return _OffsetData(items=items, offsets=offsets, inters=inters)
+    return _OffsetData(is_ccw=is_ccw, items=items, offsets=offsets, inters=inters)
 
 
 def _line_outgoing_point(inter1: Intersection) -> Point:
@@ -105,8 +106,27 @@ def _arc_outgoing_point(inter1: Intersection) -> Point:
     return inter1.intersection.point
 
 
+def outward_normal(p0: Point, p1: Point, is_ccw: bool) -> Point:
+    """
+    Compute the outward unit normal of an edge.
+
+    :param p0: Start point of the edge.
+    :param p1: End point of the edge.
+    :param is_ccw: ``True`` iff the polygon is oriented counter-clockwise.
+    :return: Unit normal pointing outside the filled region.
+    """
+    dx, dy = p1 - p0
+    n = Point(dy, -dx) if is_ccw else Point(-dy, dx)
+    return n.normalized
+
+
 class Tri(NamedTuple):
-    """Small bevel triangle between original and offset geometry."""
+    """Small bevel triangle between original and offset geometry.
+
+    :ivar orig0: Vertex on the original path.
+    :ivar off0: First vertex on the offset path.
+    :ivar off1: Second vertex on the offset path.
+    """
 
     orig0: Point
     off0: Point
@@ -114,8 +134,16 @@ class Tri(NamedTuple):
 
     @property
     def path(self) -> SvgPath:
-        """Return this triangle as a closed ``SvgPath``."""
+        """Return this triangle as a closed :class:`SvgPath`."""
         return SvgPath([M(*self.orig0), L(*self.off1), L(*self.off0), Z()])
+
+    def outward_normal(self, is_ccw: bool) -> Point:
+        """
+        Return outward unit normal of this triangle.
+
+        :param is_ccw: ``True`` iff the enclosing polygon is CCW.
+        """
+        return outward_normal(self.off0, self.off1, is_ccw=is_ccw)
 
 
 def _iter_segment_contexts(
@@ -232,7 +260,7 @@ def offset_path(
         expected form, or if an offset intersection cannot be computed.
     """
     data = _prepare_offset_data(path, d=d, prec=prec)
-    items, offsets, inters = data
+    _, items, offsets, inters = data
 
     # Start at the first offset intersection.
     new_items: list[SvgItem] = [M(*inters[0].intersection.point)]
@@ -271,12 +299,43 @@ def offset_path(
     return SvgPath(new_items)
 
 
+class BevelPolygon(NamedTuple):
+    """Planar bevel face bounded by straight segments.
+
+    :ivar path: Closed :class:`SvgPath` describing the bevel polygon.
+    :ivar outward_normal: Unit normal pointing out of the filled region.
+    """
+
+    path: SvgPath
+    outward_normal: Point
+
+
+class BevelArced(NamedTuple):
+    """Planar bevel face containing an elliptical-arc boundary.
+
+    The path consists of two corresponding arc segments (original and offset)
+    joined by straight segments.
+
+    :ivar path: Closed :class:`SvgPath` describing the bevel face.
+    :ivar c: Center of the supporting ellipse.
+    :ivar r: Radii vector of the supporting ellipse.
+    :ivar phi: Rotation of the ellipse in degrees.
+    :ivar locally_convex: ``True`` iff the bevel is convex w.r.t. the interior.
+    """
+
+    path: SvgPath
+    c: Point
+    r: Point
+    phi: Decimal
+    locally_convex: bool
+
+
 def bevel_path(
     path: SvgPath,
     *,
     d: Number,
     prec: Precision | Literal["auto", "auto-intersections"] | None = None,
-) -> Iterable[SvgPath]:
+) -> Iterable[BevelPolygon | BevelArced]:
     """
     Construct bevel faces for an offset of a simple closed path.
 
@@ -292,7 +351,7 @@ def bevel_path(
         expected form, or if an offset intersection cannot be computed.
     """
     data = _prepare_offset_data(path, d=d, prec=prec)
-    items, offsets, inters = data
+    is_ccw, items, offsets, inters = data
 
     # Emit bevel faces per segment.
     for orig, offset, inter0, inter1 in _iter_segment_contexts(offsets, inters, items):
@@ -302,7 +361,7 @@ def bevel_path(
 
             ante_pt, tris = _arc_ante(orig, inter0)
             for tri in tris:
-                yield tri.path
+                yield BevelPolygon(tri.path, tri.outward_normal(is_ccw=is_ccw))
 
             # Bevel between original arc and its offset.
             r_off = offset.r.point
@@ -310,22 +369,37 @@ def bevel_path(
             mov = M(*orig.previous_point)
             lin = L(*_arc_outgoing_point(inter1))
             arc = EllipticalArcTo([*r_off, rot, larc, 1 - s, *ante_pt], relative=False)
-            yield SvgPath([mov, orig, lin, arc, Z()])
+
+            shape = orig.geometry
+            assert isinstance(shape, ParametricEllipticalArc)
+            shape = shape if shape.locally_convex(is_ccw=is_ccw) else offset
+
+            yield BevelArced(
+                SvgPath([mov, orig, lin, arc, Z()]),
+                c=shape.c.point,
+                r=shape.r.point,
+                phi=rat_to_dec(shape.phi),
+                locally_convex=shape.locally_convex(is_ccw=is_ccw),
+            )
 
             for tri in _arc_post(orig, inter1):
-                yield tri.path
+                yield BevelPolygon(tri.path, tri.outward_normal(is_ccw=is_ccw))
         else:
             # Bevel for a straight segment.
             ante_pt, tris = _line_ante(orig, inter0)
             for tri in tris:
-                yield tri.path
+                yield BevelPolygon(tri.path, tri.outward_normal(is_ccw=is_ccw))
 
             p0, p1 = orig.previous_point, orig.target_location
             p2 = _line_outgoing_point(inter1)
-            yield SvgPath([M(*p0), L(*p1), L(*p2), L(*ante_pt), Z()])
+            p = SvgPath([M(*p0), L(*p1), L(*p2), L(*ante_pt), Z()])
+            yield BevelPolygon(
+                p, outward_normal=outward_normal(ante_pt, p2, is_ccw=is_ccw)
+            )
 
     # Final bevel closing the loop between last and first offsets.
     orig_last = items[-1]
     p0, p1 = orig_last.previous_point, orig_last.target_location
     p2, p3 = inters[0].intersection.point, inters[-1].intersection.point
-    yield SvgPath([M(*p0), L(*p1), L(*p2), L(*p3), Z()])
+    p = SvgPath([M(*p0), L(*p1), L(*p2), L(*p3), Z()])
+    yield BevelPolygon(p, outward_normal=outward_normal(p0, p1, is_ccw=is_ccw))

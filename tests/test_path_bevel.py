@@ -312,16 +312,17 @@ def test_inset_path(test_case: InsetTestCase) -> None:
             continue
 
         if prec is None:
-            inset = " ".join(str(p) for p in bevel_path(path, d="0.1"))
+            inset = " ".join(str(p.path) for p in bevel_path(path, d="0.1"))
             assert str(inset) == expected
 
         if prec is None or prec == "auto-intersections":
             inset = " ".join(
-                str(p) for p in bevel_path(path, d="0.1", prec="auto-intersections")
+                str(p.path)
+                for p in bevel_path(path, d="0.1", prec="auto-intersections")
             )
             assert str(inset) == expected
 
-        inset = " ".join(str(p) for p in bevel_path(path, d="0.1", prec="auto"))
+        inset = " ".join(str(p.path) for p in bevel_path(path, d="0.1", prec="auto"))
         assert str(inset) == expected
 
     svg_path_editor.path_offset.additional_digits = additional_digits

@@ -210,6 +210,34 @@ for p in bevel_path(path, d="0.1"):
     print(p)
 ```
 
+## 💡 Lambertian Bevel Shading
+
+The library can generate simple light-dark bevel shading using a Lambertian model on top of `bevel_path`.
+The `shade_path` function takes a `SvgPath`, a bevel distance, a neutral intensity threshold, and texture settings, and returns a `PathShading` object.
+Flat bevels are shaded analytically from their normals; curved bevels reuse a small pre-rendered Lambertian “cone” texture, which encodes a binary light/dark mask with a soft alpha ramp around the chosen threshold.
+
+`PathShading.defs_body` contains shared `<image>` definitions for these textures, and `PathShading.body` contains the per-bevel drawing elements that might reference them.
+You typically place `defs_body` once inside `<defs>` and insert `body` where you draw the path:
+
+```python
+from svg_path_editor import SvgPath
+from svg_path_editor.shading import PNG, WEBP, shade_path
+
+svg = SvgPath("M 0 0 h 2 a 1 1 0 0 1 -1 1 h 1 v 1 h -2 Z")
+
+shading = shade_path(
+    svg,
+    d="0.1",
+    threshold=0.25,
+    resolution=64, # pixels per SVG unit for textures
+    max_opacity=0.8,
+    format=WEBP, # or PNG
+)
+
+defs = "\n".join(shading.defs_body)
+body = "\n".join(shading.body)
+```
+
 ## 🧮 Decimal-Based Geometry
 
 Internally, all coordinates and numeric parameters are stored as `decimal.Decimal`:

@@ -13,7 +13,7 @@ from decimal import Decimal
 from typing import Final, Self, TypedDict, final, override
 
 from .geometry import Line, ParametricEllipticalArc, Point, Vec2
-from .math import Number, Precision, as_bool, dec_to_rat, evalf, rat_to_dec
+from .math import Number, Precision, as_bool, dec_to_rat, evalf, is_zero, rat_to_dec
 from .path_parser import PathParser
 
 __all__ = [
@@ -52,7 +52,7 @@ def _dec_to_str(x: Decimal) -> str:
     return f"{x.normalize():f}"
 
 
-def _format_number(v: Decimal, d: int | None, minify: bool = False) -> str:
+def format_decimal(v: Decimal, *, d: int | None = None, minify: bool = False) -> str:
     """
     Format a ``Decimal`` with optional fixed decimals and SVG number minification.
 
@@ -524,7 +524,7 @@ class SvgItem(ABC):
             in the same command group.
         """
         flattened = self.values + [v for it in trailing_items for v in it.values]
-        str_values = [_format_number(it, decimals, minify) for it in flattened]
+        str_values = [format_decimal(it, d=decimals, minify=minify) for it in flattened]
         return " ".join([self.get_type(), *str_values])
 
     @override
@@ -1013,12 +1013,38 @@ class EllipticalArcTo(SvgItem):
 
         kx, ky = Decimal(kx), Decimal(ky)
 
+        # --- Uniform scaling: pure similarity transform ---
+        # This does not change the ellipse orientation. For circles (rx == ry),
+        # this is the *only* way to preserve the stored φ, because the conic
+        # itself has no preferred direction.
+        if kx == ky:
+            s = kx
+            f = abs(s)
+
+            # Scale radii
+            self.values[0] *= f  # rx
+            self.values[1] *= f  # ry
+
+            # Keep rotation angle self.values[2] unchanged
+
+            # Scale target point
+            self.values[5] *= s
+            self.values[6] *= s
+
+            # Sweep flag: det(scale) = s^2 >= 0 ⇒ orientation unchanged
+            # so self.values[4] stays the same.
+
+            return
+
+        # --- General non-uniform scaling: use conic-transform algebra ---
+
         a, b = dec_to_rat(self.values[0]), dec_to_rat(self.values[1])
         degrees = dec_to_rat(self.values[2])
         rkx, rky = dec_to_rat(kx), dec_to_rat(ky)
         angle = sp.rad(degrees)
         cosv, sinv = sp.cos(angle), sp.sin(angle)
 
+        # Coefficients of the transformed conic
         ca = b * b * rky * rky * cosv * cosv + a * a * rky * rky * sinv * sinv
         cb = 2 * rkx * rky * cosv * sinv * (b * b - a * a)
         cc = a * a * rkx * rkx * cosv * cosv + b * b * rkx * rkx * sinv * sinv
@@ -1027,28 +1053,31 @@ class EllipticalArcTo(SvgItem):
         val1 = sp.sqrt((ca - cc) * (ca - cc) + cb * cb)
 
         # New rotation
-        if not cb.equals(0):
+        if not is_zero(cb):
             # atan2-style expression in degrees, using SymPy
-            self.values[2] = rat_to_dec(sp.deg(sp.atan2(cc - ca - val1, cb)))
+            self.values[2] = rat_to_dec(sp.deg(sp.atan2(cc - ca - val1, cb))) % 360
         else:
-            # Fall back to axis-aligned orientation
+            # Axis-aligned orientation (ellipse principal axes parallel to axes)
             self.values[2] = Decimal(0) if ca < cc else Decimal(90)
 
         # New radii
-        if not det.equals(0):
-            # Use SymPy throughout and convert back at the end
+        if not is_zero(det):
             f = 2 * det * cf
             self.values[0] = rat_to_dec(-sp.sqrt(f * ((ca + cc) + val1)) / det)
             self.values[1] = rat_to_dec(-sp.sqrt(f * ((ca + cc) - val1)) / det)
 
-        # New target
+        # New target point (end point of the arc)
         self.values[5] *= kx
         self.values[6] *= ky
 
-        # New sweep flag
+        # New sweep flag: flip when orientation is reversed (det < 0)
         self.values[4] = self.values[4] if kx * ky >= 0 else 1 - self.values[4]
 
-    def to_geometry(self, n: Precision | None = None) -> ParametricEllipticalArc | Line:
+    def to_geometry(
+        self,
+        *,
+        n: Precision | None = None,
+    ) -> ParametricEllipticalArc | Line:
         """
         Return a parametric representation of this SVG elliptical arc.
 
@@ -1162,7 +1191,8 @@ class EllipticalArcTo(SvgItem):
 
         vals_groups = [self.values, *[it.values for it in trailing_items]]
         formatted_groups = [
-            [_format_number(v, decimals, minify) for v in vals] for vals in vals_groups
+            [format_decimal(v, d=decimals, minify=minify) for v in vals]
+            for vals in vals_groups
         ]
         compact = [
             f"{v[0]} {v[1]} {v[2]} {v[3]}{v[4]}{v[5]} {v[6]}" for v in formatted_groups

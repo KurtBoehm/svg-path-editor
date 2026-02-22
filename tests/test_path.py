@@ -1,7 +1,16 @@
 import pytest
 
 from svg_path_editor import Point, SvgItem, SvgPath
-from svg_path_editor.svg import CurveTo, QuadraticBezierCurveTo
+from svg_path_editor.svg import (
+    ClosePath,
+    CurveTo,
+    LineTo,
+    MoveTo,
+    QuadraticBezierCurveTo,
+    l,
+    m,
+    z,
+)
 
 
 def test_item_invalid_make() -> None:
@@ -32,6 +41,13 @@ def test_path_invalid_change_type() -> None:
 
     with pytest.raises(ValueError):
         path.change_type(1, "x")
+
+
+def test_item_helpers() -> None:
+    """Test the item helpers."""
+    assert str(m(1, 2)) == str(MoveTo([1, 2], relative=True))
+    assert str(l(1, 2)) == str(LineTo([1, 2], relative=True))
+    assert str(z()) == str(ClosePath([], relative=True))
 
 
 def test_path_item_out_of_place() -> None:
@@ -141,3 +157,9 @@ def test_modify_elliptical_arc() -> None:
     path = SvgPath("M 0 0 H 10 V -10 Z")
     path.change_type(1, "A")
     assert str(path) == "M 0 0 A 1 1 0 0 0 10 0 V -10 Z"
+
+
+def test_scale_elliptical_arc_uniformly() -> None:
+    """Scale an elliptical arc uniformly, which uses a special-cased implementation."""
+    path = SvgPath("M 0 0 A 1 2 45 0 0 3 0")
+    assert str(path.scaled(2, 2)) == str(SvgPath("M 0 0 A 2 4 45 0 0 6 0"))
