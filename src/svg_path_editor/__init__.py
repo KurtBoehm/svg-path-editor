@@ -20,7 +20,7 @@ from .path_shade import (
 )
 from .svg import SvgItem, SvgPath
 
-__version__ = "3.1.1"
+__version__ = "4.0.0"
 
 __all__ = [
     "PNG",

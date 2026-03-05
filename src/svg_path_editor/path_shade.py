@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from decimal import Decimal
-from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Literal, Protocol
 
 from svg_path_editor.geometry import Point
@@ -137,7 +136,7 @@ def lambert_shading_base64(
 
        \alpha(I) =
        \begin{cases}
-         \dfrac{I - t}{1 - t}, & I \geq t,\\[4pt]
+         \dfrac{I - t}{1 - t}, & I \geq t,\\
          \dfrac{t - I}{t},     & I < t.
        \end{cases}
 
@@ -325,7 +324,7 @@ def shade_path(
 
                 if (img_entry := image_cache.get(img_key)) is None:
                     # New unique image data; generate and store
-                    img, base64 = lambert_shading_base64(
+                    _, base64 = lambert_shading_base64(
                         r=r,
                         phi=phi,
                         locally_convex=locally_convex,
