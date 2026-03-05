@@ -1,5 +1,9 @@
 # 🎨 SVG Path Editor
 
+![PyPI - Version](https://img.shields.io/pypi/v/svg-path-editor?logo=pypi&label=PyPI)
+![Test Workflow Status](https://img.shields.io/github/actions/workflow/status/KurtBoehm/svg-path-editor/test.yml?logo=github&label=Tests%20with%20100%25%20coverage)
+![Read the Docs](https://img.shields.io/readthedocs/svg-path-editor?logo=readthedocs&label=Read%20the%20Docs)
+
 A high-precision Python library for editing, transforming, and optimizing SVG paths programmatically.
 
 It is a port of [`svg-path-editor-lib`](https://www.npmjs.com/package/svg-path-editor-lib) 1.0.3 to Python with significant improvements:
@@ -11,8 +15,6 @@ It is a port of [`svg-path-editor-lib`](https://www.npmjs.com/package/svg-path-e
 - **Geometric offsetting**: robust offsets for simple closed paths, with exact line/ellipse geometry and symbolic intersection handling.
 
 The **full documentation** is on [Read the Docs](https://svg-path-editor.readthedocs.io), and a `pytest`-based **test suite with 100% coverage** is available in the [`tests` directory](https://github.com/KurtBoehm/svg-path-editor/blob/main/tests).
-
-[![Tests](https://github.com/KurtBoehm/svg-path-editor/actions/workflows/test.yml/badge.svg)](https://github.com/KurtBoehm/svg-path-editor/actions/workflows/test.yml)
 
 ## 📦 Installation
 
