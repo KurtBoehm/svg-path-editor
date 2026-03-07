@@ -1,8 +1,8 @@
 # 🎨 SVG Path Editor
 
-![PyPI - Version](https://img.shields.io/pypi/v/svg-path-editor?logo=pypi&label=PyPI)
-![Test Workflow Status](https://img.shields.io/github/actions/workflow/status/KurtBoehm/svg-path-editor/test.yml?logo=github&label=Tests%20with%20100%25%20coverage)
-![Read the Docs](https://img.shields.io/readthedocs/svg-path-editor?logo=readthedocs&label=Read%20the%20Docs)
+[![PyPI - Version](https://img.shields.io/pypi/v/svg-path-editor?logo=pypi&label=PyPI)](https://pypi.org/project/svg-path-editor/)
+[![Test Workflow Status](https://img.shields.io/github/actions/workflow/status/KurtBoehm/svg-path-editor/test.yml?logo=github&label=Tests%20with%20100%25%20coverage)](https://github.com/KurtBoehm/svg-path-editor/actions/workflows/test.yml)
+[![Read the Docs](https://img.shields.io/readthedocs/svg-path-editor?logo=readthedocs&label=Read%20the%20Docs)](https://svg-path-editor.readthedocs.io/)
 
 A high-precision Python library for editing, transforming, and optimizing SVG paths programmatically.
 
