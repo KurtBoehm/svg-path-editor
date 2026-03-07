@@ -1,4 +1,4 @@
-# This file is part of https://github.com/KurtBoehm/svg_path_editor.
+# This file is part of https://github.com/KurtBoehm/svg-path-editor.
 #
 # This Source Code Form is subject to the terms of the Mozilla Public
 # License, v. 2.0. If a copy of the MPL was not distributed with this
@@ -20,6 +20,7 @@ from .math import (
     are_equal,
     as_bool,
     dec_to_rat,
+    eq,
     evalf,
     ge,
     le,
@@ -35,7 +36,7 @@ if TYPE_CHECKING:
 # ------------------------------------------------------------------------------
 
 
-def _rotation_matrix(phi: Expr) -> Mat2:
+def rotation_matrix(phi: Expr) -> Mat2:
     r"""
     Rotation matrix for angle :math:`φ` in degrees.
 
@@ -46,7 +47,10 @@ def _rotation_matrix(phi: Expr) -> Mat2:
         R(φ) = \begin{pmatrix}
             \cos φ & -\sin φ \\
             \sin φ &  \cos φ
-        \end{pmatrix}.
+        \end{pmatrix},
+
+    where :math:`\cos` and :math:`\sin` are evaluated after converting
+    :math:`φ` from degrees to radians via :func:`sympy.rad`.
     """
     import sympy as sp
 
@@ -74,14 +78,15 @@ class Point:
 
     @override
     def __eq__(self, other: Any) -> bool:
-        """
-        Compare coordinates for exact equality.
-
-        :return: ``True`` iff ``other`` is a :class:`Point` with equal ``x`` and ``y``.
-        """
+        """Compare coordinates for equality."""
         if isinstance(other, Point):
             return self.x == other.x and self.y == other.y
         return False
+
+    @override
+    def __ne__(self, value: object, /) -> bool:
+        """Compare coordinates for inequality."""
+        return not self == value
 
     @property
     def vec2(self) -> Vec2:
@@ -205,6 +210,26 @@ class Vec2:
         """
         return Vec2(evalf(self.x, n=n), evalf(self.y, n=n))
 
+    @override
+    def __eq__(self, other: object) -> bool:
+        """
+        Equality comparison between :class:`Vec2` instances,
+        ``False`` when comparing to non-:class:`Vec2`.
+        """
+        import sympy as sp
+
+        if isinstance(other, Vec2):
+            return as_bool(sp.And(eq(self.x, other.x), eq(self.y, other.y)))
+        return False
+
+    @override
+    def __ne__(self, value: object, /) -> bool:
+        """
+        Inequality comparison between :class:`Vec2` instances,
+        ``False`` when comparing to non-:class:`Vec2`.
+        """
+        return not self == value
+
     # ---- elementary geometry -----------------------------------------------------
 
     @property
@@ -249,6 +274,15 @@ class Vec2:
     def __truediv__(self, other: Expr) -> Vec2:
         """Scalar division :math:`v / λ`."""
         return Vec2(self.x / other, self.y / other)
+
+
+@overload
+def dot(v1: Point, v2: Point) -> Decimal: ...
+@overload
+def dot(v1: Vec2, v2: Vec2) -> Expr: ...
+def dot[V: Point | Vec2](v1: V, v2: V) -> Decimal | Expr:
+    """Compute the dot product of two 2D vectors."""
+    return v1.x * v2.x + v1.y * v2.y
 
 
 @dataclass
@@ -388,6 +422,9 @@ class Line:
     def __call__(self, t: Expr) -> Vec2:
         r"""
         Evaluate the parametric line :math:`L(t) = p + (q - p)\,t`.
+
+        No restriction is imposed on :math:`t`; points with :math:`t \notin [0, 1]`
+        lie on the infinite supporting line but outside the segment.
         """
         return self.p + (self.q - self.p) * t
 
@@ -429,7 +466,7 @@ class ParametricEllipticalArc:
 
     where :math:`θ` and :math:`φ` are in degrees and :math:`(c_x, c_y)` is the center.
 
-    This arc covers the interval :math:`[θ_0, θ_0 + Δθ]` (mod 360°).
+    This arc covers the interval :math:`[θ_0, θ_0 + Δθ]` modulo :math:`360°`.
 
     :ivar c: Center :math:`(c_x, c_y)`.
     :ivar r: Radii :math:`(r_x, r_y)`.
@@ -511,6 +548,7 @@ class ParametricEllipticalArc:
 
         Works for positive and negative :math:`Δθ` and wrap-around intervals.
 
+        :param theta: Angle to test, interpreted in degrees.
         :param n: Optional precision passed to :func:`evalf`, :func:`ge`,
                   and :func:`le`.
         """
@@ -588,13 +626,13 @@ class ParametricEllipticalArc:
             # subtract center
             xy = p - self.c
             # undo rotation
-            xy = _rotation_matrix(-self.phi) @ xy
+            xy = rotation_matrix(-self.phi) @ xy
             # undo anisotropic scaling
             return Vec2(xy.x / self.r.x, xy.y / self.r.y)
 
         # apply scaling, rotation, then translation
         xy = Vec2(p.x * self.r.x, p.y * self.r.y)
-        xy = _rotation_matrix(self.phi) @ xy
+        xy = rotation_matrix(self.phi) @ xy
         return xy + self.c
 
     def implicit(self, x: Expr, y: Expr) -> Expr:
@@ -608,7 +646,7 @@ class ParametricEllipticalArc:
             F(x, y) = u^2 + v^2 - 1,
 
         where :math:`(u, v)` is the image of :math:`(x, y)` under the inverse transform
-        to the unit circle.
+        to the unit circle. Points on the ellipse satisfy :math:`F(x, y) = 0`.
         """
         uv = self.transform(Vec2(x, y), inverse=True)
         return uv.x**2 + uv.y**2 - 1

@@ -1200,6 +1200,36 @@ class EllipticalArcTo(SvgItem):
         return " ".join([self.get_type(), *compact])
 
 
+def A(
+    rx: Number,
+    ry: Number,
+    angle: Number,
+    large_arc_flag: bool,
+    sweep_flag: bool,
+    x: Number,
+    y: Number,
+) -> EllipticalArcTo:
+    return EllipticalArcTo(
+        [rx, ry, angle, int(large_arc_flag), int(sweep_flag), x, y],
+        relative=False,
+    )
+
+
+def a(
+    rx: Number,
+    ry: Number,
+    angle: Number,
+    large_arc_flag: bool,
+    sweep_flag: bool,
+    x: Number,
+    y: Number,
+) -> EllipticalArcTo:
+    return EllipticalArcTo(
+        [rx, ry, angle, int(large_arc_flag), int(sweep_flag), x, y],
+        relative=True,
+    )
+
+
 class _Grouped(TypedDict):
     """Internal helper structure for grouping path items by command type."""
 

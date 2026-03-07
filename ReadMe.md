@@ -8,11 +8,11 @@ A high-precision Python library for editing, transforming, and optimizing SVG pa
 
 It is a port of [`svg-path-editor-lib`](https://www.npmjs.com/package/svg-path-editor-lib) 1.0.3 to Python with significant improvements:
 
-- **Decimal-based geometry**: all coordinates are stored as `decimal.Decimal`, with high-precision SymPy-based computations where appropriate. This preserves the decimal values stored in an SVG path and avoids the binary round-off errors introduced by `float`.
-- **In-place and out-of-place operations**: most geometric operations are available in both mutating (`scale`, `rotate`, …) and non-mutating (`scaled`, `rotated`, …) variants.
-- **`list`-like path modification API**: path-level manipulations (insert, remove, change type, …) are exposed as methods on `SvgPath`.
-- **Typed and documented**: extensive type hints and docstrings for good IDE support and static analysis.
-- **Geometric offsetting**: robust offsets for simple closed paths, with exact line/ellipse geometry and symbolic intersection handling.
+- **High-precision, decimal-based geometry**: all coordinates use `decimal.Decimal`, with SymPy-backed trigonometry and configurable precision to avoid binary floating-point artefacts.
+- **Rich editing and transformation API**: in-place and out-of-place geometric transforms, absolute/relative conversion, and a `list`-like path structure API (`insert`, `remove`, `change_type`, `set_location`, …).
+- **Advanced path processing**: corner rounding, robust line/ellipse offsetting, bevel-path generation, and Lambertian bevel shading utilities.
+- **Path optimization and utilities**: compact, semantically equivalent paths via `optimize_path`, plus helpers such as `reverse_path` and `change_path_origin`.
+- **Typed, documented, and thoroughly tested**: extensive type hints, docstrings, and a `pytest` suite with 100% coverage.
 
 The **full documentation** is on [Read the Docs](https://svg-path-editor.readthedocs.io), and a `pytest`-based **test suite with 100% coverage** is available in the [`tests` directory](https://github.com/KurtBoehm/svg-path-editor/blob/main/tests).
 
@@ -162,6 +162,28 @@ print(reverse_path(path))
 print(change_path_origin(path, new_origin_index=2))
 ```
 
+## 🟢 Rounding Corners
+
+`round_corners` replaces sharp corners between straight segments in closed subpaths with circular arcs, operating out-of-place:
+
+```python
+from svg_path_editor import Point, SvgPath, round_corners
+
+path = SvgPath("M 0 0 H 10 V 8 l -2 2 H 0 Z")
+
+rounded = round_corners(
+    path,
+    # Required: round with a radius of 2
+    radius=2,
+    # Optional: round all corners other than Point(0, 10) or Point(10, 0)
+    # a → b and b → c are the two segments that make up the corner, with b as the corner point
+    selector=lambda a, b, c: b not in (Point(0, 10), Point(10, 0)),
+)
+
+# M0 2A2 2 0 012 0H10V7.1716A2 2 0 019.4142 8.5858L8.5858 9.4142A2 2 0 017.1716 10H0Z
+print(f"{rounded:.4m}")
+```
+
 ## 🔘 Offsetting Paths
 
 This library supports high-precision offsetting of a closed path consisting of straight lines and elliptical arcs inward or outward by a given distance:
@@ -175,9 +197,9 @@ path = SvgPath("M 5 0 A 5 5 0 0 0 0 5 A 5 10 0 0 0 5 15 a 5 5 0 0 1 5 -5 V 5 H 5
 # Offset the path
 inset = offset_path(
     path,
-    # Offset by 1 inwards (negative values offset outwards)
+    # Required: offset by 1 inwards (negative values offset outwards)
     d=1,
-    # Use numeric computations with automatic precision
+    # Optional: use numeric computations with automatic precision
     prec="auto",
 )
 
@@ -192,7 +214,7 @@ The `prec` parameter controls how `offset_path` operates:
 - `prec="auto-intersections"`: offset segments are computed symbolically, but intersections are still computed mostly numerically.
 - `prec=Precision(baseline=…, additional=…)`: explicitly set the desired _baseline_ precision and the _additional_ safety margin.
 
-Similarly, the library exposes `bevel_path`, which has the same parameters as `offset_path` (and uses very similar logic internally) and generates a sequence of small closed paths that fill the gap between the original path and its offset (the “bevel” region), which can be used for shading:
+Similarly, the library exposes `bevel_path`, which has the same parameters as `offset_path` (and uses very similar logic internally), and generates a sequence of small closed paths that fill the gap between the original path and its offset (the “bevel” region), which can be used for shading:
 
 ```python
 from svg_path_editor import SvgPath, bevel_path

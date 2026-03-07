@@ -1,3 +1,9 @@
+# This file is part of https://github.com/KurtBoehm/svg-path-editor.
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 from collections.abc import Iterable
 from decimal import Decimal, getcontext
 from typing import Literal, NamedTuple, TypeGuard
@@ -246,7 +252,7 @@ def offset_path(
     :param path: Closed :class:`SvgPath` with exactly one subpath ``M … Z``, using only
                  line and elliptical-arc segments.
     :param d: Offset distance. Positive values move edges towards the interior.
-    :param  prec: Intersection and offsetting precision:
+    :param prec: Intersection and offsetting precision:
 
         * ``"auto"``: decimal precision + :data:`additional_digits`
           for both offset geometry and intersections.

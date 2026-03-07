@@ -47,6 +47,8 @@ def test_point_eq() -> None:
     a, b = Point(1, 1), Point(2, 2)
     assert a == a
     assert not a == b
+    assert not a != a
+    assert a != b
     assert not a == 1
 
 
@@ -65,6 +67,15 @@ def test_point_str_repr() -> None:
 
     assert repr(Point(1, 2)) == "Point(1, 2)"
     assert repr(Point("1.2", "3.14")) == "Point(1.2, 3.14)"
+
+
+def test_vec2_eq() -> None:
+    a, b = Point(1, 1).vec2, Point(2, 2).vec2
+    assert a == a
+    assert not a == b
+    assert not a != a
+    assert a != b
+    assert not a == 1
 
 
 def test_vec2_normalize_zero() -> None:

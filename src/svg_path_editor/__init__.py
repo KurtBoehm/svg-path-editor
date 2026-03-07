@@ -9,6 +9,7 @@ from .math import Precision
 from .path_change_origin import change_path_origin
 from .path_offset import BevelArced, BevelPolygon, bevel_path, offset_path
 from .path_operations import optimize_path, reverse_path
+from .path_round_corners import round_corners
 from .path_shade import (
     PNG,
     WEBP,
@@ -20,7 +21,7 @@ from .path_shade import (
 )
 from .svg import SvgItem, SvgPath
 
-__version__ = "4.0.0"
+__version__ = "4.1.0"
 
 __all__ = [
     "PNG",
@@ -40,5 +41,6 @@ __all__ = [
     "offset_path",
     "optimize_path",
     "reverse_path",
+    "round_corners",
     "shade_path",
 ]

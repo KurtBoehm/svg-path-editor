@@ -1,3 +1,9 @@
+# This file is part of https://github.com/KurtBoehm/svg-path-editor.
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 import pytest
 
 from svg_path_editor import Point, SvgItem, SvgPath
@@ -7,6 +13,7 @@ from svg_path_editor.svg import (
     LineTo,
     MoveTo,
     QuadraticBezierCurveTo,
+    a,
     l,
     m,
     z,
@@ -47,6 +54,7 @@ def test_item_helpers() -> None:
     """Test the item helpers."""
     assert str(m(1, 2)) == str(MoveTo([1, 2], relative=True))
     assert str(l(1, 2)) == str(LineTo([1, 2], relative=True))
+    assert str(a(1, 2, 45, False, True, 1, 2)) == "a 1 2 45 0 1 1 2"
     assert str(z()) == str(ClosePath([], relative=True))
 
 

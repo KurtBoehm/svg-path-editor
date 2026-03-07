@@ -1,3 +1,9 @@
+# This file is part of https://github.com/KurtBoehm/svg-path-editor.
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 from __future__ import annotations
 
 from typing import Final, Literal, NotRequired, TypedDict
@@ -156,7 +162,7 @@ test_cases: Final[list[InsetTestCase]] = [
     {
         "name": "square_2x2_single_convex_cut",
         "path": "M 0 0 h 1 a 1 1 0 0 1 1 1 v 1 h -2 Z",
-        "expected": ("M 0.1 0.1 L 1 0.1 A 0.9 0.9 0 0 1 1.9 1 L 1.9 1.9 L 0.1 1.9 Z"),
+        "expected": "M 0.1 0.1 L 1 0.1 A 0.9 0.9 0 0 1 1.9 1 L 1.9 1.9 L 0.1 1.9 Z",
     },
     {
         "name": "square_2x2_two_concave_cuts",
