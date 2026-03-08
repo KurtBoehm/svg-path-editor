@@ -1,46 +1,28 @@
-###############################
- SVG Path Editor Documentation
-###############################
+#############################
+SVG Path Editor Documentation
+#############################
 
-A high-precision Python library for editing, transforming, and
-optimizing SVG paths programmatically.
+A high-precision Python library for editing, transforming, and optimizing SVG paths programmatically.
 
-It is a port of `svg-path-editor-lib
-<https://www.npmjs.com/package/svg-path-editor-lib>`_ 1.0.3 to Python
-with significant improvements:
+It is a port of `svg-path-editor-lib <https://www.npmjs.com/package/svg-path-editor-lib>`_ 1.0.3 to Python with significant improvements:
 
--  **High-precision, decimal-based geometry**: all coordinates use
-   :class:`decimal.Decimal`, with SymPy-backed trigonometry and
-   configurable precision to avoid binary floating-point artefacts.
+- **High-precision, decimal-based geometry**: all coordinates use :class:`decimal.Decimal`, with SymPy-backed trigonometry and configurable precision to avoid binary floating-point artefacts.
+- **Rich editing and transformation API**: in-place and out-of-place geometric transforms, absolute/relative conversion, and a :class:`list`-like path structure API (``insert``, ``remove``, ``change_type``, ``set_location``, …).
+- **Advanced path processing**: corner rounding, robust line/ellipse offsetting, bevel-path generation, and Lambertian bevel shading utilities.
+- **Path optimization and utilities**: compact, semantically equivalent paths via :func:`optimize_path`, plus helpers such as :func:`reverse_path` and :func:`change_path_origin`.
+- **Typed, documented, and thoroughly tested**: extensive type hints, docstrings, and a :mod:`pytest` suite with 100% coverage.
 
--  **Rich editing and transformation API**: in-place and out-of-place
-   geometric transforms, absolute/relative conversion, and a
-   :class:`list`-like path structure API (``insert``, ``remove``,
-   ``change_type``, ``set_location``, …).
-
--  **Advanced path processing**: corner rounding, robust line/ellipse
-   offsetting, bevel-path generation, and Lambertian bevel shading
-   utilities.
-
--  **Path optimization and utilities**: compact, semantically equivalent
-   paths via :func:`optimize_path`, plus helpers such as
-   :func:`reverse_path` and :func:`change_path_origin`.
-
--  **Typed, documented, and thoroughly tested**: extensive type hints,
-   docstrings, and a :mod:`pytest` suite with 100% coverage.
-
-#############
- Quick Start
-#############
+###########
+Quick Start
+###########
 
 .. currentmodule:: svg_path_editor
 
-*************
- Basic Usage
-*************
+***********
+Basic Usage
+***********
 
-A good place to start is to parse an SVG path string into an
-:class:`SvgPath` and print it:
+A good place to start is to parse an SVG path string into an :class:`SvgPath` and print it:
 
 .. code:: python
 
@@ -59,12 +41,11 @@ A good place to start is to parse an SVG path string into an
    # SvgPath also implements __format__, with m denoting minify=True
    print(f"{path:.1m} or {path:m.1}")
 
-**********************
- Geometric Operations
-**********************
+********************
+Geometric Operations
+********************
 
-Geometric operations are available in both out-of-place and in-place
-variants.
+Geometric operations are available in both out-of-place and in-place variants.
 
 Out-of-place
 ============
@@ -107,13 +88,11 @@ In-place
    path.rotate(ox=0, oy=0, degrees=90)
    print(path)
 
-********************************
- Absolute vs. Relative Commands
-********************************
+******************************
+Absolute vs. Relative Commands
+******************************
 
-Commands can be stored as either absolute (``M``, ``L``, ``C``, …) or
-relative (``m``, ``l``, ``c``, …). Conversion is available in-place via
-a property and out-of-place via a method:
+Commands can be stored as either absolute (``M``, ``L``, ``C``, …) or relative (``m``, ``l``, ``c``, …). Conversion is available in-place via a property and out-of-place via a method:
 
 .. code:: python
 
@@ -129,12 +108,11 @@ a property and out-of-place via a method:
    # m -15 14 s 5 7.5 15 7.5 s 15 -7.5 15 -7.5 z
    print(relative)
 
-*******************
- Path Modification
-*******************
+*****************
+Path Modification
+*****************
 
-:class:`SvgPath` exposes methods that modify the structure of a path in
-place, including parts of the :class:`list` API:
+:class:`SvgPath` exposes methods that modify the structure of a path in place, including parts of the :class:`list` API:
 
 .. code:: python
 
@@ -171,9 +149,9 @@ place, including parts of the :class:`list` API:
    # The clone is unaffected by these changes
    print(clone)
 
-******************************
- Higher-Level Path Operations
-******************************
+****************************
+Higher-Level Path Operations
+****************************
 
 These functions operate on paths out-of-place:
 
@@ -191,12 +169,11 @@ These functions operate on paths out-of-place:
    # M 0 21.5 c 10 0 15 -7.5 15 -7.5 L -15 14 s 5 7.5 15 7.5
    print(change_path_origin(path, new_origin_index=2))
 
-#################
- Rounding Corners
-#################
+################
+Rounding Corners
+################
 
-:func:`round_corners` replaces sharp corners between straight segments
-in closed subpaths with circular arcs, operating out-of-place:
+:func:`round_corners` replaces sharp corners between straight segments in closed subpaths with circular arcs, operating out-of-place:
 
 .. code:: python
 
@@ -216,13 +193,11 @@ in closed subpaths with circular arcs, operating out-of-place:
    # M0 2A2 2 0 012 0H10V7.1716A2 2 0 019.4142 8.5858L8.5858 9.4142A2 2 0 017.1716 10H0Z
    print(f"{rounded:.4m}")
 
-#################
- Offsetting Paths
-#################
+################
+Offsetting Paths
+################
 
-This library supports high-precision offsetting of a closed path
-consisting of straight lines and elliptical arcs inward or outward by a
-given distance:
+This library supports high-precision offsetting of a closed path consisting of straight lines and elliptical arcs inward or outward by a given distance:
 
 .. code:: python
 
@@ -248,24 +223,12 @@ given distance:
 
 The ``prec`` parameter controls how :func:`offset_path` operates:
 
--  ``prec=None``: fully symbolic intermediate computations using SymPy.
-   Can be very slow, especially for arcs based on rotated ellipses.
+- ``prec=None``: fully symbolic intermediate computations using SymPy. Can be very slow, especially for arcs based on rotated ellipses.
+- ``prec="auto"``: mostly numeric computations with the current :class:`~decimal.Decimal` precision plus a safety margin (8 digits by default). Fastest option, with results at full precision in all tests.
+- ``prec="auto-intersections"``: offset segments are computed symbolically, but intersections are still computed mostly numerically.
+- ``prec=Precision(baseline=…, additional=…)``: explicitly set the desired *baseline* precision and the *additional* safety margin.
 
--  ``prec="auto"``: mostly numeric computations with the current
-   :class:`~decimal.Decimal` precision plus a safety margin (8 digits by
-   default). Fastest option, with results at full precision in all
-   tests.
-
--  ``prec="auto-intersections"``: offset segments are computed
-   symbolically, but intersections are still computed mostly numerically.
-
--  ``prec=Precision(baseline=…, additional=…)``: explicitly set the
-   desired *baseline* precision and the *additional* safety margin.
-
-Similarly, :func:`bevel_path` has the same parameters as
-:func:`offset_path` and generates a sequence of small closed paths that
-fill the gap between the original path and its offset (the “bevel”
-region), which can be used for shading:
+Similarly, :func:`bevel_path` has the same parameters as :func:`offset_path` and generates a sequence of small closed paths that fill the gap between the original path and its offset (the “bevel” region), which can be used for shading:
 
 .. code:: python
 
@@ -277,27 +240,15 @@ region), which can be used for shading:
    for p in bevel_path(path, d="0.1"):
        print(p)
 
-#########################
- Lambertian Bevel Shading
-#########################
+########################
+Lambertian Bevel Shading
+########################
 
-The library can generate simple light-dark bevel shading using a
-Lambertian model on top of :func:`bevel_path`. The
-:func:`svg_path_editor.shading.shade_path` function takes a
-:class:`SvgPath`, a bevel distance, a neutral intensity threshold, and
-texture settings, and returns a :class:`~svg_path_editor.shading.PathShading`
-object.
+The library can generate simple light-dark bevel shading using a Lambertian model on top of :func:`bevel_path`. The :func:`svg_path_editor.shading.shade_path` function takes a :class:`SvgPath`, a bevel distance, a neutral intensity threshold, and texture settings, and returns a :class:`~svg_path_editor.shading.PathShading` object.
 
-Flat bevels are shaded analytically from their normals; curved bevels
-reuse a small pre-rendered Lambertian “cone” texture, which encodes a
-binary light/dark mask with a soft alpha ramp around the chosen
-threshold.
+Flat bevels are shaded analytically from their normals; curved bevels reuse a small pre-rendered Lambertian “cone” texture, which encodes a binary light/dark mask with a soft alpha ramp around the chosen threshold.
 
-:attr:`PathShading.defs_body` contains shared ``<image>`` definitions
-for these textures, and :attr:`PathShading.body` contains the per-bevel
-drawing elements that might reference them. You typically place
-``defs_body`` once inside ``<defs>`` and insert ``body`` where you draw
-the path:
+:attr:`PathShading.defs_body` contains shared ``<image>`` definitions for these textures, and :attr:`PathShading.body` contains the per-bevel drawing elements that might reference them. You typically place ``defs_body`` once inside ``<defs>`` and insert ``body`` where you draw the path:
 
 .. code:: python
 
@@ -318,23 +269,15 @@ the path:
    defs = "\n".join(shading.defs_body)
    body = "\n".join(shading.body)
 
-************************
- Decimal-Based Geometry
-************************
+**********************
+Decimal-Based Geometry
+**********************
 
-Internally, all coordinates and numeric parameters are stored as
-:class:`decimal.Decimal`:
+Internally, all coordinates and numeric parameters are stored as :class:`decimal.Decimal`:
 
--  Constructors and geometric methods accept :class:`int`,
-   :class:`float`, :class:`str`, or :class:`~decimal.Decimal`, and
-   convert to :class:`~decimal.Decimal` immediately.
-
--  Arithmetic (translation, scaling, rotation, etc.) is performed in
-   terms of :class:`~decimal.Decimal` to retain the decimal
-   representation in an SVG path and avoid binary round-off errors.
-
--  The decimal precision is controlled via Python’s :mod:`decimal`
-   context.
+- Constructors and geometric methods accept :class:`int`, :class:`float`, :class:`str`, or :class:`~decimal.Decimal`, and convert to :class:`~decimal.Decimal` immediately.
+- Arithmetic (translation, scaling, rotation, etc.) is performed in terms of :class:`~decimal.Decimal` to retain the decimal representation in an SVG path and avoid binary round-off errors.
+- The decimal precision is controlled via Python’s :mod:`decimal` context.
 
 .. code:: python
 
@@ -362,12 +305,11 @@ Internally, all coordinates and numeric parameters are stored as
        # M 0 0 l 7.07107 -7.07107 l 7.07107 7.07107 z
        print(rotated)
 
-*******************
- Path Optimization
-*******************
+*****************
+Path Optimization
+*****************
 
-:func:`optimize_path` rewrites a path into an equivalent but more
-compact form and operates out-of-place:
+:func:`optimize_path` rewrites a path into an equivalent but more compact form and operates out-of-place:
 
 .. code:: python
 
@@ -402,9 +344,9 @@ compact form and operates out-of-place:
    # M-15 14s5 7.5 15 7.5S15 14 15 14z
    print(f"{optimized:m}")
 
-####################
- Indices and Tables
-####################
+##################
+Indices and Tables
+##################
 
 .. toctree::
    :maxdepth: 2
@@ -412,5 +354,5 @@ compact form and operates out-of-place:
 
    API Reference <autoapi/svg_path_editor/index>
 
--  :ref:`genindex`
--  :ref:`modindex`
+- :ref:`genindex`
+- :ref:`modindex`
