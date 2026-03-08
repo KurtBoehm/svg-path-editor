@@ -4,12 +4,10 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-import io
 from pathlib import Path
 from shutil import which
 from subprocess import run
 
-import cairosvg
 from PIL import Image
 
 from svg_path_editor import SvgPath, bevel_path, offset_path, round_corners, shade_path
@@ -47,20 +45,22 @@ def handle_svg(
 ) -> None:
     pixels = size_units * 128
     dst.write_text(svg, encoding="utf-8")
+    png_path = dst.with_suffix(".png")
 
-    png_bytes = cairosvg.svg2png(
-        bytestring=svg.encode("utf-8"),
-        output_width=pixels * supersample,
-        output_height=pixels * supersample,
-    )
-    assert isinstance(png_bytes, bytes)
+    cmd: list[str | Path] = [
+        "inkscape",
+        dst,
+        "--export-type=png",
+        f"--export-filename={png_path}",
+        f"--export-width={pixels * supersample}",
+        f"--export-height={pixels * supersample}",
+    ]
+    run(cmd, check=True)
 
     Image.MAX_IMAGE_PIXELS = None
-    with Image.open(io.BytesIO(png_bytes)) as img:
+    with Image.open(png_path) as img:
         img = img.resize((pixels, pixels), Image.Resampling.BOX)
-
-        png_path = dst.with_suffix(".png")
-        img.save(png_path)
+    img.save(png_path)
 
     if which("oxipng"):
         run(["oxipng", "-o6", "--strip", "all", png_path], check=True)
