@@ -92,7 +92,8 @@ In-place
 Absolute vs. Relative Commands
 ******************************
 
-Commands can be stored as either absolute (``M``, ``L``, ``C``, …) or relative (``m``, ``l``, ``c``, …). Conversion is available in-place via a property and out-of-place via a method:
+Commands can be stored as either absolute (``M``, ``L``, ``C``, …) or relative (``m``, ``l``, ``c``, …).
+Conversion is available in-place via a property and out-of-place via a method:
 
 .. code:: python
 
@@ -236,8 +237,10 @@ This library supports high-precision offsetting of a closed path consisting of s
 
 The ``prec`` parameter controls how :func:`offset_path` operates:
 
-- ``prec=None``: fully symbolic intermediate computations using SymPy. Can be very slow, especially for arcs based on rotated ellipses.
-- ``prec="auto"``: mostly numeric computations with the current :class:`~decimal.Decimal` precision plus a safety margin (8 digits by default). Fastest option, with results at full precision in all tests.
+- ``prec=None``: fully symbolic intermediate computations using SymPy.
+  Can be very slow, especially for arcs based on rotated ellipses.
+- ``prec="auto"``: mostly numeric computations with the current :class:`~decimal.Decimal` precision plus a safety margin (8 digits by default).
+  Fastest option, with results at full precision in all tests.
 - ``prec="auto-intersections"``: offset segments are computed symbolically, but intersections are still computed mostly numerically.
 - ``prec=Precision(baseline=…, additional=…)``: explicitly set the desired *baseline* precision and the *additional* safety margin.
 
@@ -276,17 +279,22 @@ Similarly, :func:`bevel_path` has the same parameters as :func:`offset_path` and
 
 .. admonition:: Warning
 
-   Most SVG renderers implement fairly primitive antialiasing that is prone to hairline gaps between the parts of the bevel regions. The option ``shape-rendering="crispEdges"`` can be used to remove hairline gaps at the cost of removing antialiasing (in testing), which only leads to acceptable results in very limited circumstances. Rendering the SVG at a (much) higher resolution and downsampling is a brute-force solution that has been used to render the pictures shown here. Rendering at an integer multiple of the SVG size in image units helps with horizontal and vertical lines, too.
+   Most SVG renderers implement fairly primitive antialiasing that is prone to hairline gaps between the parts of the bevel regions.
+   The option ``shape-rendering="crispEdges"`` can be used to remove hairline gaps at the cost of removing antialiasing (in testing), which only leads to acceptable results in very limited circumstances.
+   Rendering the SVG at a (much) higher resolution and downsampling is a brute-force solution that has been used to render the pictures shown here.
+   Rendering at an integer multiple of the SVG size in image units helps with horizontal and vertical lines, too.
 
 ########################
 Lambertian Bevel Shading
 ########################
 
-The library can generate simple light-dark bevel shading using a Lambertian model on top of :func:`bevel_path`. The :func:`svg_path_editor.shading.shade_path` function takes a :class:`SvgPath`, a bevel distance, a neutral intensity threshold, and texture settings, and returns a :class:`~svg_path_editor.shading.PathShading` object.
+The library can generate simple light-dark bevel shading using a Lambertian model on top of :func:`bevel_path`.
+The :func:`svg_path_editor.shading.shade_path` function takes a :class:`SvgPath`, a bevel distance, a neutral intensity threshold, and texture settings, and returns a :class:`~svg_path_editor.shading.PathShading` object.
 
 Flat bevels are shaded analytically from their normals; curved bevels reuse a small pre-rendered Lambertian “cone” texture, which encodes a binary light/dark mask with a soft alpha ramp around the chosen threshold.
 
-:attr:`PathShading.defs_body` contains shared ``<image>`` definitions for these textures, and :attr:`PathShading.body` contains the per-bevel drawing elements that reference them. You typically place ``defs_body`` once inside ``<defs>`` and insert ``body`` where you draw the path:
+:attr:`PathShading.defs_body` contains shared ``<image>`` definitions for these textures, and :attr:`PathShading.body` contains the per-bevel drawing elements that reference them.
+You typically place ``defs_body`` once inside ``<defs>`` and insert ``body`` where you draw the path:
 
 .. code:: python
 
