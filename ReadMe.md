@@ -211,6 +211,10 @@ inset = offset_path(
 print(f"{inset:.4}")
 ```
 
+| Offset inward                                                                                                   | Input                                                                                                          | Offset outward                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| ![Merged](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_inw.png) | ![Input](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_src.png) | ![Merged](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_out.png) |
+
 The `prec` parameter controls how `offset_path` operates:
 
 - `prec=None`: fully symbolic intermediate computations using SymPy. Can be very slow, especially for arcs based on rotated ellipses.
@@ -238,13 +242,15 @@ for p in bevel_path(path, d="0.1"):
     print(p)
 ```
 
-| Offset inward                                                                                                   | Input                                                                                                          | Offset outward                                                                                                  |
-| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
-| ![Merged](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_inw.png) | ![Input](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_src.png) | ![Merged](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_out.png) |
-
 | Bevel inward                                                                                                  | Input                                                                                                          | Bevel outward                                                                                                  |
 | ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
 | ![Input](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/bevel_inw.png) | ![Merged](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/bevel_src.png) | ![Merged](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/bevel_out.png) |
+
+> [!WARNING]
+> Most SVG renderers implement fairly primitive antialiasing that is prone to hairline gaps between the parts of the bevel regions.
+> The option `shape-rendering="crispEdges"` can be used to remove hairline gaps at the cost of removing antialiasing (in my testing), which only leads to acceptable results in very limited circumstances.
+> Rendering the SVG at a (much) higher resolution and downsampling is a brute-force solution that has been used to render the pictures shown here.
+> Rendering at an integer multiple of the SVG size in image helps with horizontal and vertical lines, too.
 
 ## 💡 Lambertian Bevel Shading
 
@@ -277,6 +283,9 @@ body = "\n".join(shading.body)
 | Input                                                                                                           | Shaded (`threshold=0.25`)                                                                                        | Shaded (`threshold=0.75`)                                                                                        |
 | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | ![Input](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_src.png) | ![Shaded](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_1_4.png) | ![Shaded](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_3_4.png) |
+
+> [!WARNING]
+> Since this operation is based on the bevel operation described before, it inherits its limitations with respect to hairline gaps.
 
 ## 🧮 Decimal-Based Geometry
 
