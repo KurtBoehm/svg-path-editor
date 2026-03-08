@@ -184,6 +184,10 @@ rounded = round_corners(
 print(f"{rounded:.4m}")
 ```
 
+| Input                                                                                                         | Rounded with radius 1                                                                                             | Rounded with radius 2                                                                                             |
+| ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| ![Input](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/round_src.png) | ![Rounded r=1](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/round_1.png) | ![Rounded r=2](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/round_2.png) |
+
 ## 🔘 Offsetting Paths
 
 This library supports high-precision offsetting of a closed path consisting of straight lines and elliptical arcs inward or outward by a given distance:
@@ -234,6 +238,14 @@ for p in bevel_path(path, d="0.1"):
     print(p)
 ```
 
+| Offset inward                                                                                                   | Input                                                                                                          | Offset outward                                                                                                  |
+| --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| ![Merged](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_inw.png) | ![Input](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_src.png) | ![Merged](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_out.png) |
+
+| Bevel inward                                                                                                  | Input                                                                                                          | Bevel outward                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| ![Input](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/bevel_inw.png) | ![Merged](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/bevel_src.png) | ![Merged](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/bevel_out.png) |
+
 ## 💡 Lambertian Bevel Shading
 
 The library can generate simple light-dark bevel shading using a Lambertian model on top of `bevel_path`.
@@ -261,6 +273,10 @@ shading = shade_path(
 defs = "\n".join(shading.defs_body)
 body = "\n".join(shading.body)
 ```
+
+| Input                                                                                                           | Shaded (`threshold=0.25`)                                                                                        | Shaded (`threshold=0.75`)                                                                                        |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| ![Input](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_src.png) | ![Shaded](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_1_4.png) | ![Shaded](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_3_4.png) |
 
 ## 🧮 Decimal-Based Geometry
 
