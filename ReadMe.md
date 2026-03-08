@@ -190,7 +190,7 @@ print(f"{rounded:.4m}")
 
 ## 🔘 Offsetting Paths
 
-This library supports high-precision offsetting of a closed path consisting of straight lines and elliptical arcs inward or outward by a given distance:
+The library supports high-precision offsetting of a closed path consisting of straight lines and elliptical arcs inward or outward by a given distance:
 
 ```python
 from svg_path_editor import SvgPath, offset_path
@@ -250,7 +250,7 @@ for p in bevel_path(path, d="0.1"):
 > Most SVG renderers implement fairly primitive antialiasing that is prone to hairline gaps between the parts of the bevel regions.
 > The option `shape-rendering="crispEdges"` can be used to remove hairline gaps at the cost of removing antialiasing (in my testing), which only leads to acceptable results in very limited circumstances.
 > Rendering the SVG at a (much) higher resolution and downsampling is a brute-force solution that has been used to render the pictures shown here.
-> Rendering at an integer multiple of the SVG size in image helps with horizontal and vertical lines, too.
+> Rendering at an integer multiple of the SVG size in image units helps with horizontal and vertical lines, too.
 
 ## 💡 Lambertian Bevel Shading
 
@@ -258,7 +258,7 @@ The library can generate simple light-dark bevel shading using a Lambertian mode
 The `shade_path` function takes a `SvgPath`, a bevel distance, a neutral intensity threshold, and texture settings, and returns a `PathShading` object.
 Flat bevels are shaded analytically from their normals; curved bevels reuse a small pre-rendered Lambertian “cone” texture, which encodes a binary light/dark mask with a soft alpha ramp around the chosen threshold.
 
-`PathShading.defs_body` contains shared `<image>` definitions for these textures, and `PathShading.body` contains the per-bevel drawing elements that might reference them.
+`PathShading.defs_body` contains shared `<image>` definitions for these textures, and `PathShading.body` contains the per-bevel drawing elements that reference them.
 You typically place `defs_body` once inside `<defs>` and insert `body` where you draw the path:
 
 ```python
@@ -332,20 +332,20 @@ path = SvgPath("M-15 14s5 7.5 15 7.5 15-7.5 15-7.5 z")
 
 optimized = optimize_path(
     path,
-    # Remove redundant M/Z or degenerate L/H/V.
+    # Remove redundant M/Z or degenerate L/H/V
     remove_useless_commands=True,
-    # Remove empty closed subpaths (M immediately followed by Z).
+    # Remove empty closed subpaths (M immediately followed by Z)
     remove_orphan_dots=True,
-    # Convert eligible C/Q to S/T.
+    # Convert eligible C/Q to S/T
     use_shorthands=True,
-    # Replace L with H/V where possible.
+    # Replace L with H/V where possible
     use_horizontal_and_vertical_lines=True,
-    # Choose relative/absolute per command to minimize size.
+    # Choose relative/absolute per command to minimize size
     use_relative_absolute=True,
-    # Try reversing path direction if it reduces output length.
+    # Try reversing path direction if it reduces output length
     # This may change the appearance of stroked paths!
     use_reverse=True,
-    # Convert final line segments that return to start into Z.
+    # Convert final line segments that return to start into Z
     # This may change the appearance of stroked paths!
     use_close_path=True,
 )

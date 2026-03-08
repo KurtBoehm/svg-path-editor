@@ -193,6 +193,19 @@ Rounding Corners
    # M0 2A2 2 0 012 0H10V7.1716A2 2 0 019.4142 8.5858L8.5858 9.4142A2 2 0 017.1716 10H0Z
    print(f"{rounded:.4m}")
 
+.. list-table::
+   :header-rows: 1
+
+   * - Input
+     - Rounded with radius 1
+     - Rounded with radius 2
+   * - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/round_src.png
+          :alt: Unrounded input path
+     - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/round_1.png
+          :alt: Rounded r=1
+     - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/round_2.png
+          :alt: Rounded r=2
+
 ################
 Offsetting Paths
 ################
@@ -237,8 +250,33 @@ Similarly, :func:`bevel_path` has the same parameters as :func:`offset_path` and
    # A path looking somewhat like an anvil
    path = SvgPath("M 0 0 h 2 a 1 1 0 0 1 -1 1 h 1 v 1 h -2 Z")
 
+   # M 0 0 L 2 0 L 1.894427190999915878563669467 0.1 L 0.1 0.1 Z
+   # M 2 0 a 1 1 0 0 1 -1 1 L 1 0.9 A 0.9 0.9 0 0 0 1.894427190999915878563669467 0.1 Z
+   # M 1 1 L 0.9 0.9 L 1 0.9 Z
+   # M 1 1 L 0.9 1.1 L 0.9 0.9 Z
+   # M 1 1 L 2 1 L 1.9 1.1 L 0.9 1.1 Z
+   # M 2 1 L 2 2 L 1.9 1.9 L 1.9 1.1 Z
+   # M 2 2 L 0 2 L 0.1 1.9 L 1.9 1.9 Z
+   # M 0 2 L 0 0 L 0.1 0.1 L 0.1 1.9 Z
    for p in bevel_path(path, d="0.1"):
        print(p)
+
+.. list-table::
+   :header-rows: 1
+
+   * - Offset inward
+     - Input
+     - Offset outward
+   * - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_inw.png
+          :alt: Offset inward
+     - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_src.png
+          :alt: Offset input
+     - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/offset_out.png
+          :alt: Offset outward
+
+.. admonition:: Warning
+
+   Most SVG renderers implement fairly primitive antialiasing that is prone to hairline gaps between the parts of the bevel regions. The option ``shape-rendering="crispEdges"`` can be used to remove hairline gaps at the cost of removing antialiasing (in testing), which only leads to acceptable results in very limited circumstances. Rendering the SVG at a (much) higher resolution and downsampling is a brute-force solution that has been used to render the pictures shown here. Rendering at an integer multiple of the SVG size in image units helps with horizontal and vertical lines, too.
 
 ########################
 Lambertian Bevel Shading
@@ -248,7 +286,7 @@ The library can generate simple light-dark bevel shading using a Lambertian mode
 
 Flat bevels are shaded analytically from their normals; curved bevels reuse a small pre-rendered Lambertian “cone” texture, which encodes a binary light/dark mask with a soft alpha ramp around the chosen threshold.
 
-:attr:`PathShading.defs_body` contains shared ``<image>`` definitions for these textures, and :attr:`PathShading.body` contains the per-bevel drawing elements that might reference them. You typically place ``defs_body`` once inside ``<defs>`` and insert ``body`` where you draw the path:
+:attr:`PathShading.defs_body` contains shared ``<image>`` definitions for these textures, and :attr:`PathShading.body` contains the per-bevel drawing elements that reference them. You typically place ``defs_body`` once inside ``<defs>`` and insert ``body`` where you draw the path:
 
 .. code:: python
 
@@ -268,6 +306,23 @@ Flat bevels are shaded analytically from their normals; curved bevels reuse a sm
 
    defs = "\n".join(shading.defs_body)
    body = "\n".join(shading.body)
+
+.. list-table::
+   :header-rows: 1
+
+   * - Input
+     - Shaded (``threshold=0.25``)
+     - Shaded (``threshold=0.75``)
+   * - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_src.png
+          :alt: Input for Lambertian shading
+     - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_1_4.png
+          :alt: Shaded threshold 0.25
+     - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_3_4.png
+          :alt: Shaded threshold 0.75
+
+.. admonition:: Warning
+
+   Since this operation is based on the bevel operation described before, it inherits its limitations with respect to hairline gaps.
 
 **********************
 Decimal-Based Geometry
@@ -319,20 +374,20 @@ Path Optimization
 
    optimized = optimize_path(
        path,
-       # Remove redundant M/Z or degenerate L/H/V.
+       # Remove redundant M/Z or degenerate L/H/V
        remove_useless_commands=True,
-       # Remove empty closed subpaths (M immediately followed by Z).
+       # Remove empty closed subpaths (M immediately followed by Z)
        remove_orphan_dots=True,
-       # Convert eligible C/Q to S/T.
+       # Convert eligible C/Q to S/T
        use_shorthands=True,
-       # Replace L with H/V where possible.
+       # Replace L with H/V where possible
        use_horizontal_and_vertical_lines=True,
-       # Choose relative/absolute per command to minimize size.
+       # Choose relative/absolute per command to minimize size
        use_relative_absolute=True,
-       # Try reversing path direction if it reduces output length.
+       # Try reversing path direction if it reduces output length
        # This may change the appearance of stroked paths!
        use_reverse=True,
-       # Convert final line segments that return to start into Z.
+       # Convert final line segments that return to start into Z
        # This may change the appearance of stroked paths!
        use_close_path=True,
    )
