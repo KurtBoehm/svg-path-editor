@@ -1139,7 +1139,11 @@ class EllipticalArcTo(SvgItem):
 
         x, y = (px - pcx) / rrx, (py - pcy) / rry
         theta0 = vangle(sp.Integer(1), sp.Integer(0), x, y)
-        dtheta = vangle(x, y, -(px + pcx) / rrx, -(py + pcy) / rry) % 360
+        dtheta = vangle(x, y, -(px + pcx) / rrx, -(py + pcy) / rry)
+        # This case distinction is faster than dtheta % 360
+        # It is valid because the output of vangle is between -180° and 180°
+        if as_bool(dtheta < 0):
+            dtheta += 360
         if not sweep:
             dtheta -= 360
 
