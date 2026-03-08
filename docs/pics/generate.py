@@ -102,6 +102,17 @@ handle_svg(
     ),
     size_units=11,
 )
+for suffix, path in (
+    ("input", base_svg),
+    ("inward", offset_in),
+    ("outward", offset_out),
+):
+    handle_svg(
+        base / f"offset_{suffix}.svg",
+        make_svg([make_path(path)], (-1, -1, 10, 10)),
+        size_units=11,
+    )
+
 
 # Bevel
 bevel_colors = [
