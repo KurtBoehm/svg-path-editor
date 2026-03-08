@@ -10,7 +10,7 @@ from typing import Callable, Final, NotRequired, TypedDict
 
 import pytest
 
-from svg_path_editor import SvgPath, Point, round_corners
+from svg_path_editor import Point, SvgPath, round_corners
 
 
 class RoundTestCase(TypedDict):

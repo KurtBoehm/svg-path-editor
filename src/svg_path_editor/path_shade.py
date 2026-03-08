@@ -244,6 +244,8 @@ def shade_path(
     resolution: float,
     max_opacity: Number = 1,
     format: ImageFormat = WEBP,
+    shade_offset: int = 0,
+    clip_offset: int = 0,
     seed: int | None = None,
     prec: Precision | Literal["auto", "auto-intersections"] | None = None,
 ) -> PathShading:
@@ -299,13 +301,13 @@ def shade_path(
     bevels = bevel_path(svg, d=d, prec=prec)
 
     # Cache for unique images: key -> (image_id, base64)
-    image_cache: dict[tuple[Decimal, Decimal, Decimal, bool], tuple[str, str]] = {}
-    image_id_ctr = 0
+    shade_cache: dict[tuple[Decimal, Decimal, Decimal, bool], tuple[str, str]] = {}
+    shade_ctr = shade_offset
 
     defs_body: list[str] = []
     body: list[str] = []
 
-    clip_idx = 0
+    clip_idx = clip_offset
     for b in bevels:
         match b:
             case BevelPolygon(outward_normal=normal, path=path):
@@ -326,31 +328,32 @@ def shade_path(
                 locally_convex=locally_convex,
             ):
                 base, dims = c - r, r * 2
-                img_key = r.x, r.y, phi, locally_convex
+                shade_key = r.x, r.y, phi, locally_convex
 
-                if (img_entry := image_cache.get(img_key)) is None:
+                if (shade_entry := shade_cache.get(shade_key)) is None:
                     # New unique image data; generate and store
                     _, base64 = lambert_shading_base64(
                         r=r,
                         phi=phi,
                         locally_convex=locally_convex,
                         resolution=resolution,
+                        t=float(threshold),
                         format=format,
                         seed=seed,
                     )
-                    image_id = f"shade{image_id_ctr}"
-                    image_id_ctr += 1
+                    shade_id = f"shade{shade_ctr}"
+                    shade_ctr += 1
 
-                    image_cache[img_key] = (image_id, base64)
+                    shade_cache[shade_key] = (shade_id, base64)
 
                     # Base <image> in <defs> at (0, 0) with size 2 r.x × 2 r.y.
                     defs_body.append(
-                        f'<image id="{image_id}" '
+                        f'<image id="{shade_id}" '
                         + f'width="{d2s(dims.x)}" height="{d2s(dims.y)}" '
                         + f'preserveAspectRatio="none" href="{base64}"/>'
                     )
                 else:
-                    image_id, base64 = img_entry
+                    shade_id, base64 = shade_entry
 
                 clip_id = f"arc{clip_idx}"
                 clip_idx += 1
@@ -369,7 +372,7 @@ def shade_path(
 
                 body.append(
                     f'<g clip-path="url(#{clip_id})">'
-                    + f'<use href="#{image_id}"{opacity_attr} '
+                    + f'<use href="#{shade_id}"{opacity_attr} '
                     + f'transform="{transform_attr}"/></g>'
                 )
 

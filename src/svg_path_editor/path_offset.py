@@ -314,6 +314,8 @@ class BevelPolygon(NamedTuple):
 
     path: SvgPath
     outward_normal: Point
+    ante_ext: bool = False
+    post_ext: bool = False
 
 
 class BevelArced(NamedTuple):
@@ -334,6 +336,8 @@ class BevelArced(NamedTuple):
     r: Point
     phi: Decimal
     locally_convex: bool
+    ante_ext: bool = False
+    post_ext: bool = False
 
 
 def bevel_path(
@@ -367,7 +371,11 @@ def bevel_path(
 
             ante_pt, tris = _arc_ante(orig, inter0)
             for tri in tris:
-                yield BevelPolygon(tri.path, tri.outward_normal(is_ccw=is_ccw))
+                yield BevelPolygon(
+                    tri.path,
+                    tri.outward_normal(is_ccw=is_ccw),
+                    ante_ext=True,
+                )
 
             # Bevel between original arc and its offset.
             r_off = offset.r.point
@@ -389,18 +397,27 @@ def bevel_path(
             )
 
             for tri in _arc_post(orig, inter1):
-                yield BevelPolygon(tri.path, tri.outward_normal(is_ccw=is_ccw))
+                yield BevelPolygon(
+                    tri.path,
+                    tri.outward_normal(is_ccw=is_ccw),
+                    post_ext=True,
+                )
         else:
             # Bevel for a straight segment.
             ante_pt, tris = _line_ante(orig, inter0)
             for tri in tris:
-                yield BevelPolygon(tri.path, tri.outward_normal(is_ccw=is_ccw))
+                yield BevelPolygon(
+                    tri.path,
+                    tri.outward_normal(is_ccw=is_ccw),
+                    ante_ext=True,
+                )
 
             p0, p1 = orig.previous_point, orig.target_location
             p2 = _line_outgoing_point(inter1)
             p = SvgPath([M(*p0), L(*p1), L(*p2), L(*ante_pt), Z()])
             yield BevelPolygon(
-                p, outward_normal=outward_normal(ante_pt, p2, is_ccw=is_ccw)
+                p,
+                outward_normal=outward_normal(ante_pt, p2, is_ccw=is_ccw),
             )
 
     # Final bevel closing the loop between last and first offsets.
