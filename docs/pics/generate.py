@@ -73,7 +73,7 @@ base_svg = SvgPath("M 0 8 H 6 L 8 6 V 2 A 2 2 0 0 1 6 0 H 2 A 2 2 0 0 0 0 2 Z")
 
 # Round corners
 handle_svg(
-    base / "round_input.svg",
+    base / "round_src.svg",
     make_svg([make_path(base_svg)], (0, 0, 8, 8)),
     size_units=8,
 )
@@ -91,7 +91,7 @@ offset_in = offset_path(base_svg, d=1)
 offset_out = offset_path(base_svg, d=-1)
 
 handle_svg(
-    base / "offset.svg",
+    base / "offset_merged.svg",
     make_svg(
         [
             make_path(offset_out, fill="#EA4335"),
@@ -102,11 +102,7 @@ handle_svg(
     ),
     size_units=11,
 )
-for suffix, path in (
-    ("input", base_svg),
-    ("inward", offset_in),
-    ("outward", offset_out),
-):
+for suffix, path in (("src", base_svg), ("inw", offset_in), ("out", offset_out)):
     handle_svg(
         base / f"offset_{suffix}.svg",
         make_svg([make_path(path)], (-1, -1, 10, 10)),
@@ -126,7 +122,7 @@ bevel_colors = [
 ]
 
 handle_svg(
-    base / "bevel_input.svg",
+    base / "bevel_src.svg",
     make_svg([make_path(base_svg)], (-1, -1, 10, 10)),
     size_units=11,
 )
@@ -163,12 +159,12 @@ lambert_paths_src = [
 ]
 
 handle_svg(
-    base / "lambert_base.svg",
+    base / "lambert_src.svg",
     make_svg([make_path(p, fill=c) for p, c in lambert_paths_src], (0, 0, 8, 8)),
     size_units=8,
 )
 
-for threshold in (0.25, 0.75):
+for threshold_num in (1, 3):
     defs: list[str] = []
     body_paths: list[str] = []
 
@@ -177,7 +173,7 @@ for threshold in (0.25, 0.75):
         shading = shade_path(
             p,
             d=0.5,
-            threshold=threshold,
+            threshold=threshold_num / 4,
             resolution=32,
             shade_offset=len(defs),
             clip_offset=len(defs),
@@ -186,9 +182,8 @@ for threshold in (0.25, 0.75):
         defs.extend(shading.defs_body)
         body_paths.extend(shading.body)
 
-    threshold_suffix = str(threshold).replace(".", "_")
     handle_svg(
-        base / f"lambert_{threshold_suffix}.svg",
+        base / f"lambert_{threshold_num}_4.svg",
         make_svg([f"<defs>{''.join(defs)}</defs>", *body_paths], (0, 0, 8, 8)),
         size_units=8,
     )
