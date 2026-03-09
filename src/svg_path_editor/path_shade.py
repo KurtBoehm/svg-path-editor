@@ -62,8 +62,6 @@ def lambert_from_angle(
     # 3D normal n = (nx, ny, 1); only direction matters
     nx, ny, nz = dec_to_rat(normal.x), dec_to_rat(normal.y), sp.S.One
     nlen = sp.sqrt(nx * nx + ny * ny + nz * nz)
-    if nlen == 0:
-        return Decimal(0)
     nxn, nyn, nzn = nx / nlen, ny / nlen, nz / nlen
 
     # Light position L_pos = (0, 1, z_light)
