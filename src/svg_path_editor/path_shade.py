@@ -18,32 +18,65 @@ if TYPE_CHECKING:
     import numpy as np
 
 
-def lambert_from_angle(normal: Point) -> Decimal:
+def lambert_from_angle(
+    normal: Point,
+    *,
+    z_light: Number = 1,
+) -> Decimal:
     r"""
-    Lambertian diffuse intensity from a surface normal.
+    Lambertian diffuse intensity from a 2D surface normal.
 
-    The light direction is fixed to :math:`(0, -1, 1)` in world space.
-    The result is
+    The 2D normal is interpreted in the :math:`xy`-plane, with an implicit
+    :math:`z`-component 1:
 
     .. math::
 
-       I = \max(0, \hat{\mathbf{n}}\cdot\hat{\mathbf{L}}),
+       \mathbf{n} = (n_x, n_y, 1).
 
-    evaluated via the signed angle of ``normal`` in the :math:`xy`-plane.
+    The light position is
 
-    :param normal: Surface normal.
+    .. math::
+
+       \mathbf{L}_\text{pos} = (0, 1, z_{\text{light}}),
+
+    and the light direction is
+
+    .. math::
+
+       \hat{\mathbf{L}} = \frac{\mathbf{L}_\text{pos}}{\|\mathbf{L}_\text{pos}\|}.
+
+    The Lambert intensity is
+
+    .. math::
+
+       I = \max(0, \hat{\mathbf{n}} \cdot \hat{\mathbf{L}}),
+
+    where :math:`\hat{\mathbf{n}}` is the normalized surface normal.
+
+    :param normal: 2D surface normal in the :math:`xy`-plane.
+    :param z_light: :math:`z` height of the light source.
     :return: Lambertian intensity in :math:`[0, 1]`.
     """
     import sympy as sp
 
-    # I(theta) = max(0, (1 - sin(theta)) / 2)
-    sinv = rat_to_dec(sp.sin(sp.atan2(dec_to_rat(-normal.y), dec_to_rat(normal.x))))
-    return max(Decimal(0), (1 - sinv) / 2)
+    # 3D normal n = (nx, ny, 1); only direction matters
+    nx, ny, nz = dec_to_rat(normal.x), dec_to_rat(normal.y), sp.S.One
+    nlen = sp.sqrt(nx * nx + ny * ny + nz * nz)
+    if nlen == 0:
+        return Decimal(0)
+    nxn, nyn, nzn = nx / nlen, ny / nlen, nz / nlen
+
+    # Light position L_pos = (0, 1, z_light)
+    lx_sp, ly_sp, lz_sp = sp.S.Zero, sp.S.One, dec_to_rat(Decimal(z_light))
+    llen = sp.sqrt(lx_sp * lx_sp + ly_sp * ly_sp + lz_sp * lz_sp)
+    lx_sp, ly_sp, lz_sp = lx_sp / llen, ly_sp / llen, lz_sp / llen
+
+    return max(Decimal(0), rat_to_dec(nxn * lx_sp + nyn * ly_sp + nzn * lz_sp))
 
 
 class ImageFormat(Protocol):
     """
-    Abstract image encoder.
+    Abstract RGBA image encoder.
 
     :ivar media_type: MIME type of the encoded image.
     :ivar extension: File extension (without dot).
@@ -66,7 +99,7 @@ class WebpFormat:
     """
     Lossless WebP encoder.
 
-    Uses :func:`imagecodecs.webp_encode` with ``lossless=True``.
+    Uses :func:`imagecodecs.webp_encode(lossless=True)`.
     """
 
     media_type: ClassVar[str] = "image/webp"
@@ -82,7 +115,7 @@ class PngFormat:
     """
     PNG encoder.
 
-    Uses :func:`imagecodecs.png_encode` with ``level=9``.
+    Uses :func:`imagecodecs.png_encode(level=9)`.
     """
 
     media_type: ClassVar[str] = "image/png"
@@ -104,12 +137,13 @@ def lambert_shading_base64(
     phi: Decimal,
     locally_convex: bool,
     resolution: float,
-    t: float = 0.25,
+    t: float = 0.5,
+    z_light: float = 1.0,
     format: ImageFormat = WEBP,
     seed: int | None = None,
 ) -> tuple[bytes, str]:
     r"""
-    Render a Lambert–shaded elliptical cone, return encoded bytes and base64 URI.
+    Render a Lambert–shaded elliptical cone; return encoded bytes and base64 URI.
 
     The cone radii are :math:`r = (r_x, r_y)` in image space. For a point
     :math:`(x, y)` on the grid
@@ -131,12 +165,12 @@ def lambert_shading_base64(
 
        I(x, y) = \max\left(0, \hat{\mathbf{n}}(x, y)\cdot\hat{\mathbf{L}}\right),
 
-    where :math:`\hat{\mathbf{L}}` is the unit vector from :math:`(0, s, 1)`,
-    with :math:`s = -1` if ``locally_convex`` else :math:`+1`, rotated in the
-    :math:`xy`-plane by :math:`-\varphi` degrees.
+    where :math:`\hat{\mathbf{L}}` is the unit vector from the light position
+    :math:`(0, s, z_{\text{light}})` with :math:`s = -1` if ``locally_convex``
+    else :math:`+1`, rotated in the :math:`xy`-plane by :math:`-\varphi` degrees.
 
-    Grayscale is binary (0 or 255) according to :math:`I > t`. Alpha is a
-    symmetric remap of :math:`I` around :math:`t`:
+    Grayscale is binary (0 or 255) according to :math:`I > t`. Alpha is a symmetric
+    remap of :math:`I` around :math:`t`:
 
     .. math::
 
@@ -155,16 +189,16 @@ def lambert_shading_base64(
     :param r: Ellipse radii in :math:`x` and :math:`y`.
     :param phi: Rotation in degrees of the light direction in image space
         (clockwise in screen coordinates).
-    :param locally_convex: If true, the base light direction is :math:`(0, -1, 1)`,
-        otherwise :math:`(0, 1, 1)`.
+    :param locally_convex: If true, the base light position is
+        :math:`(0, -1, z_{\text{light}})`, otherwise :math:`(0, 1, z_{\text{light}})`.
     :param resolution: Pixels per SVG unit. Image size is
         :math:`\lceil 2 r_x \, \mathrm{resolution} \rceil
         \times \lceil 2 r_y \, \mathrm{resolution} \rceil`.
     :param t: Neutral Lambert intensity in :math:`[0, 1]` (threshold).
+    :param z_light: :math:`z` height of the light source.
     :param format: Image format to use.
     :param seed: RNG seed for alpha dithering; ``None`` is non-deterministic.
-    :return: ``(img_bytes, img_data_uri)`` with ``img_data_uri`` suitable
-        for SVG ``href``.
+    :return: ``(img_bytes, img_data_uri)``; the URI is suitable for SVG ``href``.
     """
     import base64
     import math
@@ -180,16 +214,19 @@ def lambert_shading_base64(
     y = np.linspace(-1 / ry, 1 / ry, ny, dtype=np.float64)
     x, y = np.meshgrid(x, y, indexing="xy")
 
-    # Unnormalized normals; z-component is constant 1
+    # Surface normal in xy; z-component is 1
     nxy: npt.NDArray[np.float64] = np.hypot(x, y)
-    nx, ny, nz = x / nxy, y / nxy, 1.0
+    # Avoid division by zero at the center: treat nxy == 0 as (0, 0, 1)
+    nxy_safe = np.where(nxy == 0, 1.0, nxy)
+    nx, ny, nz = x / nxy_safe, y / nxy_safe, 1.0
 
     # Normalize the normals
     inv_norm = 1.0 / np.sqrt(nx * nx + ny * ny + nz * nz)
     nxn, nyn, nzn = nx * inv_norm, ny * inv_norm, nz * inv_norm
 
-    # Light direction: base (0, ±1, 1), then rotate by -phi around z
-    lx, ly, lz = 0.0, (-1.0 if locally_convex else 1.0), 1.0
+    # Light direction: from (0, ±1, z_light), then rotated by -phi around z
+    lx, ly, lz = 0.0, (-1.0 if locally_convex else 1.0), float(z_light)
+
     phi_rad = -math.radians(float(phi))
     sin_phi, cos_phi = math.sin(phi_rad), math.cos(phi_rad)
     lx, ly = cos_phi * lx - sin_phi * ly, sin_phi * lx + cos_phi * ly
@@ -207,7 +244,7 @@ def lambert_shading_base64(
     alpha[mask] = (alpha[mask] - t) / (1.0 - t)
     alpha[~mask] = (t - alpha[~mask]) / t
 
-    # Quantize alpha to 8-bit with small dithering noise
+    # Quantize alpha to 8-bit with dithering
     w = np.iinfo(np.uint8).max
     noise = np.random.default_rng(seed).uniform(0.0, 1.0, size=alpha.shape)
     alpha = (alpha * w + noise).clip(0, w).astype(np.uint8)
@@ -240,7 +277,8 @@ def shade_path(
     svg: SvgPath,
     *,
     d: Number,
-    threshold: Number,
+    threshold: Number = 0.5,
+    z_light: Number,
     resolution: float,
     max_opacity: Number = 1,
     format: ImageFormat = WEBP,
@@ -253,10 +291,13 @@ def shade_path(
     Per-bevel Lambert shading for an SVG path.
 
     The path is decomposed into bevel regions via
-    :func:`svg_path_editor.path_offset.bevel_path`. Flat bevel polygons are
-    shaded analytically with :func:`lambert_from_angle`. Curved bevel arcs use
-    a small Lambert RGBA texture from :func:`lambert_shading_base64`, referenced
-    by ``<image>`` / ``<use>`` and clipped to the arc geometry.
+    :func:`svg_path_editor.path_offset.bevel_path`.
+
+    * Flat bevel polygons are shaded analytically with
+      :func:`lambert_from_angle`.
+    * Curved bevel arcs are shaded using a small Lambert RGBA texture from
+      :func:`lambert_shading_base64`, referenced by ``<image>`` / ``<use>``
+      and clipped to the arc geometry.
 
     For each bevel polygon:
 
@@ -285,22 +326,26 @@ def shade_path(
     :param d: Offset distance for :func:`bevel_path`.
     :param threshold: Neutral Lambert intensity in :math:`[0, 1]`, shared
         between flat bevels and textures.
-    :param resolution: Pixels per SVG unit for generated textures; image
-        dimensions follow :func:`lambert_shading_base64`.
+    :param z_light: :math:`z` height of the light source.
+    :param resolution: Pixels per SVG unit for generated textures.
     :param max_opacity: Global opacity scale in :math:`[0, 1]`.
     :param format: Texture format, e.g. :data:`WEBP` or :data:`PNG`.
+    :param shade_offset: Starting index for generated shade IDs.
+    :param clip_offset: Starting index for generated clip-path IDs.
     :param seed: RNG seed for alpha dithering in :func:`lambert_shading_base64`;
         ``None`` for non-deterministic.
     :param prec: Precision/geometry mode passed to :func:`bevel_path`.
         ``"auto"`` and ``"auto-intersections"`` select automatic strategies;
         ``None`` uses the default.
+    :return: :class:`PathShading` with SVG fragments for defs and body.
     """
     threshold = Decimal(threshold)
+    z_light = Decimal(z_light)
     max_opacity = Decimal(max_opacity)
 
     bevels = bevel_path(svg, d=d, prec=prec)
 
-    # Cache for unique images: key -> (image_id, base64)
+    # Cache for unique images: key → (image_id, base64)
     shade_cache: dict[tuple[Decimal, Decimal, Decimal, bool], tuple[str, str]] = {}
     shade_ctr = shade_offset
 
@@ -311,13 +356,13 @@ def shade_path(
     for b in bevels:
         match b:
             case BevelPolygon(outward_normal=normal, path=path):
-                intensity = lambert_from_angle(normal)
+                intensity = lambert_from_angle(normal, z_light=z_light)
                 fill = "white" if intensity >= threshold else "black"
-                opacity = (
-                    (intensity - threshold) / (1 - threshold)
-                    if intensity >= threshold
-                    else (threshold - intensity) / threshold
-                ) * max_opacity
+                if intensity >= threshold:
+                    opacity = (intensity - threshold) / (1 - threshold)
+                else:
+                    opacity = (threshold - intensity) / threshold
+                opacity *= max_opacity
                 body.append(f'<path fill="{fill}" opacity="{opacity:.3g}" d="{path}"/>')
 
             case BevelArced(
@@ -338,6 +383,7 @@ def shade_path(
                         locally_convex=locally_convex,
                         resolution=resolution,
                         t=float(threshold),
+                        z_light=float(z_light),
                         format=format,
                         seed=seed,
                     )
@@ -346,7 +392,7 @@ def shade_path(
 
                     shade_cache[shade_key] = (shade_id, base64)
 
-                    # Base <image> in <defs> at (0, 0) with size 2 r.x × 2 r.y.
+                    # Base <image> in <defs> at (0, 0) with size 2 r.x × 2 r.y
                     defs_body.append(
                         f'<image id="{shade_id}" '
                         + f'width="{d2s(dims.x)}" height="{d2s(dims.y)}" '

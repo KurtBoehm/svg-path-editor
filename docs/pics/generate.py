@@ -4,6 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+from fractions import Fraction
 from pathlib import Path
 from shutil import which
 from subprocess import run
@@ -100,13 +101,13 @@ handle_svg(
         ],
         (-1, -1, 10, 10),
     ),
-    size_units=11,
+    size_units=10,
 )
 for suffix, path in (("src", base_svg), ("inw", offset_in), ("out", offset_out)):
     handle_svg(
         base / f"offset_{suffix}.svg",
         make_svg([make_path(path)], (-1, -1, 10, 10)),
-        size_units=11,
+        size_units=10,
     )
 
 
@@ -124,7 +125,7 @@ bevel_colors = [
 handle_svg(
     base / "bevel_src.svg",
     make_svg([make_path(base_svg)], (-1, -1, 10, 10)),
-    size_units=11,
+    size_units=10,
 )
 
 for d, suffix in ((1, "inw"), (-1, "out")):
@@ -147,7 +148,7 @@ for d, suffix in ((1, "inw"), (-1, "out")):
             ],
             (-1, -1, 10, 10),
         ),
-        size_units=11,
+        size_units=10,
     )
 
 # Bevel with Lambert shading
@@ -164,7 +165,7 @@ handle_svg(
     size_units=8,
 )
 
-for threshold_num in (1, 3):
+for z_light in (Fraction(1, 2), Fraction(3, 4), Fraction(2, 1), Fraction(5, 4)):
     defs: list[str] = []
     body_paths: list[str] = []
 
@@ -173,7 +174,7 @@ for threshold_num in (1, 3):
         shading = shade_path(
             p,
             d=0.5,
-            threshold=threshold_num / 4,
+            z_light=float(z_light),
             resolution=32,
             shade_offset=len(defs),
             clip_offset=len(defs),
@@ -182,8 +183,10 @@ for threshold_num in (1, 3):
         defs.extend(shading.defs_body)
         body_paths.extend(shading.body)
 
+    n, d = z_light.numerator, z_light.denominator
+    z_str = f"{n}_{d}" if d != 1 else str(n)
     handle_svg(
-        base / f"lambert_{threshold_num}_4.svg",
+        base / f"lambert_{z_str}.svg",
         make_svg([f"<defs>{''.join(defs)}</defs>", *body_paths], (0, 0, 8, 8)),
         size_units=8,
     )
