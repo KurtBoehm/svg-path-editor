@@ -289,7 +289,7 @@ Lambertian Bevel Shading
 ########################
 
 The library can generate simple light-dark bevel shading using a Lambertian model on top of :func:`bevel_path`.
-The :func:`svg_path_editor.shading.shade_path` function takes a :class:`SvgPath`, a bevel distance, a neutral intensity threshold, and texture settings, and returns a :class:`~svg_path_editor.shading.PathShading` object.
+The :func:`svg_path_editor.shading.shade_path` function takes a :class:`SvgPath`, a bevel distance, and various optional arguments (including the z-height of the light source, a neutral intensity threshold, and texture settings), and returns a :class:`~svg_path_editor.shading.PathShading` object.
 
 Flat bevels are shaded analytically from their normals; curved bevels reuse a small pre-rendered Lambertian “cone” texture, which encodes a binary light/dark mask with a soft alpha ramp around the chosen threshold.
 
@@ -305,11 +305,18 @@ You typically place ``defs_body`` once inside ``<defs>`` and insert ``body`` whe
 
    shading = shade_path(
        svg,
+       # Required: Bevel offset
        d="0.1",
-       threshold=0.25,
-       resolution=64,  # pixels per SVG unit for textures
+       # Required: Pixels per SVG unit for textures
+       resolution=64,
+       # Optional: The z-height of the light source (default: 1)
+       z_height=2,
+       # Optional: Neutral Lambert intensity at which the shading is transparent (default: 0.5)
+       threshold=0.5,
+       # Optional: The maximum opacity of the shading (default: 1)
        max_opacity=0.8,
-       format=WEBP,    # or PNG
+       # Optional: The image format (predefined: PNG and WEBP; default: WEBP)
+       format=WEBP,
    )
 
    defs = "\n".join(shading.defs_body)
@@ -319,14 +326,14 @@ You typically place ``defs_body`` once inside ``<defs>`` and insert ``body`` whe
    :header-rows: 1
 
    * - Input
-     - Shaded (``threshold=0.25``)
-     - Shaded (``threshold=0.75``)
+     - Shaded (``z_height=0.5``)
+     - Shaded (``z_height=2``)
    * - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_src.png
           :alt: Input for Lambertian shading
-     - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_1_4.png
-          :alt: Shaded threshold 0.25
-     - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_3_4.png
-          :alt: Shaded threshold 0.75
+     - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_1_2.png
+          :alt: Shaded z_height=0.5
+     - .. image:: https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_2.png
+          :alt: Shaded z_height=2
 
 .. admonition:: Warning
 

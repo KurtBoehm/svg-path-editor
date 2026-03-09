@@ -137,8 +137,8 @@ def lambert_shading_base64(
     phi: Decimal,
     locally_convex: bool,
     resolution: float,
-    t: float = 0.5,
     z_light: float = 1.0,
+    t: float = 0.5,
     format: ImageFormat = WEBP,
     seed: int | None = None,
 ) -> tuple[bytes, str]:
@@ -194,8 +194,8 @@ def lambert_shading_base64(
     :param resolution: Pixels per SVG unit. Image size is
         :math:`\lceil 2 r_x \, \mathrm{resolution} \rceil
         \times \lceil 2 r_y \, \mathrm{resolution} \rceil`.
-    :param t: Neutral Lambert intensity in :math:`[0, 1]` (threshold).
     :param z_light: :math:`z` height of the light source.
+    :param t: Neutral Lambert intensity in :math:`[0, 1]` (threshold).
     :param format: Image format to use.
     :param seed: RNG seed for alpha dithering; ``None`` is non-deterministic.
     :return: ``(img_bytes, img_data_uri)``; the URI is suitable for SVG ``href``.
@@ -277,9 +277,9 @@ def shade_path(
     svg: SvgPath,
     *,
     d: Number,
-    threshold: Number = 0.5,
-    z_light: Number,
     resolution: float,
+    z_light: Number = 1,
+    threshold: Number = 0.5,
     max_opacity: Number = 1,
     format: ImageFormat = WEBP,
     shade_offset: int = 0,
@@ -324,10 +324,10 @@ def shade_path(
 
     :param svg: Input path to bevel and shade.
     :param d: Offset distance for :func:`bevel_path`.
+    :param resolution: Pixels per SVG unit for generated textures.
+    :param z_light: :math:`z` height of the light source.
     :param threshold: Neutral Lambert intensity in :math:`[0, 1]`, shared
         between flat bevels and textures.
-    :param z_light: :math:`z` height of the light source.
-    :param resolution: Pixels per SVG unit for generated textures.
     :param max_opacity: Global opacity scale in :math:`[0, 1]`.
     :param format: Texture format, e.g. :data:`WEBP` or :data:`PNG`.
     :param shade_offset: Starting index for generated shade IDs.

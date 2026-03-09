@@ -255,7 +255,7 @@ for p in bevel_path(path, d="0.1"):
 ## 💡 Lambertian Bevel Shading
 
 The library can generate simple light-dark bevel shading using a Lambertian model on top of `bevel_path`.
-The `shade_path` function takes a `SvgPath`, a bevel distance, a neutral intensity threshold, and texture settings, and returns a `PathShading` object.
+The `shade_path` function takes a `SvgPath`, a bevel distance, and various optional arguments (inclusing the z-height of the leight source, a neutral intensity threshold, and texture settings), and returns a `PathShading` object.
 Flat bevels are shaded analytically from their normals; curved bevels reuse a small pre-rendered Lambertian “cone” texture, which encodes a binary light/dark mask with a soft alpha ramp around the chosen threshold.
 
 `PathShading.defs_body` contains shared `<image>` definitions for these textures, and `PathShading.body` contains the per-bevel drawing elements that reference them.
@@ -269,20 +269,27 @@ svg = SvgPath("M 0 0 h 2 a 1 1 0 0 1 -1 1 h 1 v 1 h -2 Z")
 
 shading = shade_path(
     svg,
+    # Required: Bevel offset
     d="0.1",
-    threshold=0.25,
-    resolution=64, # pixels per SVG unit for textures
+    # Required: Pixels per SVG unit for textures
+    resolution=64,
+    # Optional: The z-height of the light source (default: 1)
+    z_height=2,
+    # Optional: Neutral Lambert intensity at which the shading is transparent (default: 0.5)
+    threshold=0.5,
+    # Optional: The maximum opacity of the shading (default: 1)
     max_opacity=0.8,
-    format=WEBP, # or PNG
+    # Optional: The image format (predefined: PNG and WEBP; default: WEBP)
+    format=WEBP,
 )
 
 defs = "\n".join(shading.defs_body)
 body = "\n".join(shading.body)
 ```
 
-| Input                                                                                                           | Shaded (`threshold=0.25`)                                                                                        | Shaded (`threshold=0.75`)                                                                                        |
-| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| ![Input](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_src.png) | ![Shaded](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_1_4.png) | ![Shaded](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_3_4.png) |
+| Input                                                                                                           | Shaded (`z_light=0.5`)                                                                                           | Shaded (`z_light=2`)                                                                                           |
+| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| ![Input](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_src.png) | ![Shaded](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_1_2.png) | ![Shaded](https://raw.githubusercontent.com/KurtBoehm/svg-path-editor/refs/heads/main/docs/pics/lambert_2.png) |
 
 > [!WARNING]
 > Since this operation is based on the bevel operation described before, it inherits its limitations with respect to hairline gaps.
