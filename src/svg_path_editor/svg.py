@@ -1091,68 +1091,79 @@ class EllipticalArcTo(SvgItem):
         """
         import sympy as sp
 
+        def ev(expr: sp.Expr) -> sp.Expr:
+            return evalf(expr, n=n)
+
+        def vangle(ux: sp.Expr, uy: sp.Expr, vx: sp.Expr, vy: sp.Expr) -> sp.Expr:
+            # angle between (ux, uy) and (vx, vy) in degrees, signed by cross product
+            return sp.deg(sp.atan2(ev(ux * vy - uy * vx), ev(ux * vx + uy * vy)))
+
         x0, y0 = self.previous_point
         rx, ry, phi, large_arc, sweep, _, _ = self.values
         large_arc, sweep = bool(large_arc), bool(sweep)
         [(x1, y1)] = self.absolute_points
 
+        # Degenerate case: straight line
         if rx == 0 and ry == 0:
             return Line(Point(x0, y0).vec2, Point(x1, y1).vec2)
-        rx, ry = abs(rx), abs(ry)
 
-        rx0, ry0 = dec_to_rat(x0), dec_to_rat(y0)
-        rx1, ry1 = dec_to_rat(x1), dec_to_rat(y1)
-        rrx, rry = dec_to_rat(rx), dec_to_rat(ry)
-        rphi = dec_to_rat(phi)
-        angle = sp.rad(rphi)
+        # Convert to exact rationals
+        x0, y0 = dec_to_rat(x0), dec_to_rat(y0)
+        x1, y1 = dec_to_rat(x1), dec_to_rat(y1)
+        rx, ry = dec_to_rat(abs(rx)), dec_to_rat(abs(ry))
+        phi = dec_to_rat(phi)
+
+        angle = sp.rad(phi)
         cosv, sinv = sp.cos(angle), sp.sin(angle)
 
-        # step 1
-        avgx, avgy = (rx0 - rx1) / 2, (ry0 - ry1) / 2
+        # Step 1
+        avgx, avgy = (x0 - x1) / 2, (y0 - y1) / 2
         px, py = cosv * avgx + sinv * avgy, cosv * avgy - sinv * avgx
 
-        # B.2.5 step 3: Ensure radii are large enough
-        λ = px**2 / rrx**2 + py**2 / rry**2
-        if as_bool(λ > 1):
-            λ_sqrt = sp.sqrt(λ)
-            rrx, rry = λ_sqrt * rrx, λ_sqrt * rry
+        # B.2.5 step 3: ensure radii are large enough
+        rx2, ry2 = rx * rx, ry * ry
+        px2, py2 = px * px, py * py
 
-        # step 2
-        rrx2, rry2, px2, py2 = rrx * rrx, rry * rry, px * px, py * py
-        cfn = rrx2 * rry2 - rrx2 * py2 - rry2 * px2
-        cfd = rrx2 * py2 + rry2 * px2
+        λ = px2 / rx2 + py2 / ry2
+        if as_bool(λ > 1):
+            scale = sp.sqrt(λ)
+            rx *= scale
+            ry *= scale
+            # Update squares since radii changed
+            rx2, ry2 = rx * rx, ry * ry
+
+        # Step 2
+        cfn = rx2 * ry2 - rx2 * py2 - ry2 * px2
+        cfd = rx2 * py2 + ry2 * px2
         cf = sp.sqrt(cfn / cfd)
-        pcx, pcy = cf * rrx * py / rry, -cf * rry * px / rrx
+
+        # Center in the transformed coordinate system
+        pcx, pcy = cf * rx * py / ry, -cf * ry * px / rx
         if large_arc == sweep:
             pcx, pcy = -pcx, -pcy
 
-        # step 3
-        cx = cosv * pcx - sinv * pcy + (rx0 + rx1) / 2
-        cy = sinv * pcx + cosv * pcy + (ry0 + ry1) / 2
+        # Step 3: center in original coordinates
+        cx = cosv * pcx - sinv * pcy + (x0 + x1) / 2
+        cy = sinv * pcx + cosv * pcy + (y0 + y1) / 2
 
-        # step 4
-        def vangle(ux: sp.Expr, uy: sp.Expr, vx: sp.Expr, vy: sp.Expr) -> sp.Expr:
-            num = ux * vx + uy * vy
-            den = sp.sqrt(ux * ux + uy * uy) * sp.sqrt(vx * vx + vy * vy)
-            ac = evalf(sp.deg(sp.acos(num / den)), n=n)
-            return ac if as_bool(ge(ux * vy, uy * vx, n=n)) else -ac
+        # Step 4: angles
+        x, y = (px - pcx) / rx, (py - pcy) / ry
 
-        x, y = (px - pcx) / rrx, (py - pcy) / rry
-        theta0 = vangle(sp.Integer(1), sp.Integer(0), x, y)
-        dtheta = vangle(x, y, -(px + pcx) / rrx, -(py + pcy) / rry)
-        # This case distinction is faster than dtheta % 360
-        # It is valid because the output of vangle is between -180° and 180°
+        theta0 = vangle(sp.S.One, sp.S.Zero, x, y)
+        dtheta = vangle(x, y, -(px + pcx) / rx, -(py + pcy) / ry)
+
+        # vangle returns angles in (-180°, 180°]
         if as_bool(dtheta < 0):
             dtheta += 360
         if not sweep:
             dtheta -= 360
 
         return ParametricEllipticalArc(
-            c=Vec2(evalf(cx, n=n), evalf(cy, n=n)),
-            r=Vec2(evalf(rrx, n=n), evalf(rry, n=n)),
-            theta0=evalf(theta0, n=n),
-            dtheta=evalf(dtheta, n=n),
-            phi=evalf(rphi, n=n),
+            c=Vec2(ev(cx), ev(cy)),
+            r=Vec2(ev(rx), ev(ry)),
+            theta0=ev(theta0),
+            dtheta=ev(dtheta),
+            phi=ev(phi),
         )
 
     @property
