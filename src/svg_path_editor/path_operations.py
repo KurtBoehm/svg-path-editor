@@ -214,29 +214,31 @@ def optimize_path(
             if c0type == "M" and c1type == "M":
                 c1.relative = False
                 del path[i - 1]
-                i -= 1
                 continue
             if c0type == "Z" and c1type == "Z":
                 del path[i]
-                i -= 1
                 continue
             if c0type == "Z" and c1type == "M":
                 tg = c0.target_location
                 if tg.x == c1.absolute_points[0].x and tg.y == c1.absolute_points[0].y:
                     del path[i]
-                    i -= 1
                     continue
+            if (
+                c0type in ("L", "V", "H")
+                and c1type == "Z"
+                and c0.target_location == c1.target_location
+            ):
+                del path[i - 1]
+                continue
             if c1type in ("L", "V", "H"):
                 tg = c1.target_location
                 if tg.x == c1.previous_point.x and tg.y == c1.previous_point.y:
                     del path[i]
-                    i -= 1
                     continue
 
         if remove_orphan_dots:
             if c0type == "M" and c1type == "Z":
                 del path[i]
-                i -= 1
                 continue
 
         if use_horizontal_and_vertical_lines:
@@ -295,7 +297,7 @@ def optimize_path(
         i += 1
 
     if remove_useless_commands or remove_orphan_dots:
-        if len(path) > 0 and path[-1].get_type(True) == "M":
+        if path and path[-1].get_type(True) == "M":
             del path[-1]
 
         # With remove_useless_commands, links to previous items may become dirty:

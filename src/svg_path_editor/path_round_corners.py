@@ -131,12 +131,12 @@ def round_corners(
         d = rr * sp.cot(theta / 2)
 
         # Skip if the fillet would be longer than a segment
-        if d >= l1 or d >= l2:
+        if d > l1 or d > l2:
             result.append(curr)
             continue
 
         # New endpoints: tail of incoming, head of outgoing
-        tail1, head2 = b + u1 * d, b + u2 * d
+        tail1, head2 = (b + u1 * d).simplify(), (b + u2 * d).simplify()
         head2x, head2y = head2.point
 
         # Shorten current segment to end at tail1

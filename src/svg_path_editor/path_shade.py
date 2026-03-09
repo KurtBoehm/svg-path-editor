@@ -284,6 +284,7 @@ def shade_path(
     clip_offset: int = 0,
     seed: int | None = None,
     prec: Precision | Literal["auto", "auto-intersections"] | None = None,
+    fmt_spec: str = "",
 ) -> PathShading:
     """
     Per-bevel Lambert shading for an SVG path.
@@ -335,6 +336,7 @@ def shade_path(
     :param prec: Precision/geometry mode passed to :func:`bevel_path`.
         ``"auto"`` and ``"auto-intersections"`` select automatic strategies;
         ``None`` uses the default.
+    :param fmt_spec: The formatting specification for the paths.
     :return: :class:`PathShading` with SVG fragments for defs and body.
     """
     threshold = Decimal(threshold)
@@ -361,7 +363,9 @@ def shade_path(
                 else:
                     opacity = (threshold - intensity) / threshold
                 opacity *= max_opacity
-                body.append(f'<path fill="{fill}" opacity="{opacity:.3g}" d="{path}"/>')
+                body.append(
+                    f'<path fill="{fill}" opacity="{opacity:.3g}" d="{path:{fmt_spec}}"/>'
+                )
 
             case BevelArced(
                 path=path,
@@ -401,7 +405,9 @@ def shade_path(
 
                 clip_id = f"arc{clip_idx}"
                 clip_idx += 1
-                body.append(f'<clipPath id="{clip_id}"><path d="{path}"/></clipPath>')
+                body.append(
+                    f'<clipPath id="{clip_id}"><path d="{path:{fmt_spec}}"/></clipPath>'
+                )
 
                 transform_parts = [f"translate({d2s(base.x)} {d2s(base.y)})"]
                 if phi != 0:

@@ -13,7 +13,7 @@ from decimal import Decimal
 from typing import Final, Self, TypedDict, final, override
 
 from .geometry import Line, ParametricEllipticalArc, Point, Vec2
-from .math import Number, Precision, as_bool, dec_to_rat, evalf, ge, is_zero, rat_to_dec
+from .math import Number, Precision, as_bool, dec_to_rat, evalf, is_zero, rat_to_dec
 from .path_parser import PathParser
 
 __all__ = [

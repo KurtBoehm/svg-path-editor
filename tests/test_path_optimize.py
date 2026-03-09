@@ -96,6 +96,20 @@ def test_optimize_path_removes_useless_components() -> None:
     assert str(post_svg) == post
 
 
+def test_optimize_path_removes_useless_components_closing() -> None:
+    """Remove useless moves/draws."""
+    ante = "M 0 0 H 2 V 2 H 0 V 0 Z"
+    ante_svg = SvgPath(ante)
+    post_svg = optimize_path(
+        ante_svg,
+        remove_useless_commands=True,
+    )
+
+    # Original must not be mutated
+    assert str(ante_svg) == ante
+    assert str(post_svg) == "M 0 0 H 2 V 2 H 0 Z"
+
+
 def test_optimize_path_uses_shorthands() -> None:
     """Prefer shorthand ``C``/``S`` and ``Q``/``T`` commands."""
     post = (

@@ -210,6 +210,14 @@ class Vec2:
         """
         return Vec2(evalf(self.x, n=n), evalf(self.y, n=n))
 
+    def simplify(self) -> Vec2:
+        """
+        Simplify both components using :func:`sympy.simplify`.
+        """
+        import sympy as sp
+
+        return Vec2(x=sp.simplify(self.x), y=sp.simplify(self.y))
+
     @override
     def __eq__(self, other: object) -> bool:
         """
