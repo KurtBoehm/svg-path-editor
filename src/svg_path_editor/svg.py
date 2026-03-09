@@ -13,7 +13,7 @@ from decimal import Decimal
 from typing import Final, Self, TypedDict, final, override
 
 from .geometry import Line, ParametricEllipticalArc, Point, Vec2
-from .math import Number, Precision, as_bool, dec_to_rat, evalf, is_zero, rat_to_dec
+from .math import Number, Precision, as_bool, dec_to_rat, evalf, ge, is_zero, rat_to_dec
 from .path_parser import PathParser
 
 __all__ = [
@@ -1135,7 +1135,7 @@ class EllipticalArcTo(SvgItem):
             num = ux * vx + uy * vy
             den = sp.sqrt(ux * ux + uy * uy) * sp.sqrt(vx * vx + vy * vy)
             ac = evalf(sp.deg(sp.acos(num / den)), n=n)
-            return ac if as_bool(ux * vy - uy * vx >= 0) else -ac
+            return ac if as_bool(ge(ux * vy, uy * vx, n=n)) else -ac
 
         x, y = (px - pcx) / rrx, (py - pcy) / rry
         theta0 = vangle(sp.Integer(1), sp.Integer(0), x, y)
